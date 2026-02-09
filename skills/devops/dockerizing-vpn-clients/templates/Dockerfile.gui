@@ -1,0 +1,70 @@
+# VPN Client Docker Image - GUI Mode (VNC)
+# 适用于需要图形界面的 VPN 客户端
+FROM debian:12-slim
+
+# 构建参数
+ARG TARGETARCH
+
+# 环境变量
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:0
+ENV VNC_PASSWORD=123456
+ENV ARCH=${TARGETARCH}
+
+# 安装基础依赖
+RUN apt-get update && apt-get install -y \
+    # VNC 和显示
+    x11vnc \
+    xvfb \
+    supervisor \
+    dbus-x11 \
+    # 轻量桌面环境 (可选择 xfce4 或 flwm)
+    xfce4 xfce4-goodies \
+    # 网络工具
+    net-tools \
+    iproute2 \
+    iptables \
+    # 代理
+    dante-server \
+    busybox \
+    # 其他工具
+    wget \
+    curl \
+    procps \
+    # GUI 依赖 (根据 VPN 客户端需要调整)
+    libgtk2.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    --no-install-recommends && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# === 安装 VPN 客户端 ===
+# TODO: 根据实际客户端修改
+# COPY ./deb/vpnclient.${TARGETARCH}.deb /tmp/vpnclient.deb
+# RUN apt install /tmp/vpnclient.deb && rm /tmp/vpnclient.deb
+
+# 复制配置文件
+COPY danted.conf.sample /etc/danted.conf.sample
+COPY start.sh /opt/start.sh
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# 设置工作目录
+WORKDIR /opt
+
+# 配置 VNC 密码
+RUN mkdir -p ~/.vnc && \
+    x11vnc -storepasswd ${VNC_PASSWORD} ~/.vnc/passwd && \
+    chmod +x /opt/start.sh
+
+# 数据卷 - 配置持久化
+# TODO: 根据 VPN 客户端配置目录调整
+VOLUME ["/opt/vpn/conf"]
+
+# 暴露端口: 5900=VNC, 1080=SOCKS5
+EXPOSE 5900 1080
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD pgrep -x danted > /dev/null || exit 1
+
+# 启动 Supervisor
+CMD ["/usr/bin/supervisord"]

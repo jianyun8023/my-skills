@@ -1,0 +1,31 @@
+# Skill 目录索引
+
+> 自动生成于 2026-02-09 12:18:29，请勿手动编辑。
+> 运行 `./scripts/catalog.sh` 重新生成。
+
+## DevOps & CI/CD (2)
+
+| Skill | 描述 |
+|-------|------|
+| [`dockerizing-vpn-clients`](skills/devops/dockerizing-vpn-clients/) | Use when containerizing VPN clients into Docker, supporting both GUI (VNC) and CLI (Web management) modes with danted... (附: templates) |
+| [`github-actions-multi-platform-build`](skills/devops/github-actions-multi-platform-build/) | Use when creating or updating GitHub Actions workflows for multi-platform Docker image builds (amd64/arm64) with Buil... |
+
+## Java 技术栈 (5)
+
+| Skill | 描述 |
+|-------|------|
+| [`java-api-endpoint`](skills/java/java-api-endpoint/) | Add RESTful API endpoints to Spring Boot projects following layered architecture conventions. Covers Controller, Faca... |
+| [`java-architecture-guide`](skills/java/java-architecture-guide/) | Java 业务项目架构原则和编码规范。适用于 Spring Boot + MyBatis-Plus 分层架构项目。在编写/审查/重构 Java 业务代码时主动参考。Use when writing, reviewing, or ref... |
+| [`java-crud-module`](skills/java/java-crud-module/) | Scaffold a complete CRUD business module for Spring Boot + MyBatis-Plus layered architecture. Creates all 9 required ... (附: reference) |
+| [`java-db-migration`](skills/java/java-db-migration/) | Generate MyBatis Migration database scripts following established conventions. Handles table creation, column additio... |
+| [`java-dto-converter`](skills/java/java-dto-converter/) | Create DTOs and MapStruct converters for Spring Boot layered architecture projects. Covers naming conventions, valida... |
+
+## 工具配置 (1)
+
+| Skill | 描述 |
+|-------|------|
+| [`surge-configuration`](skills/tooling/surge-configuration/) | Surge proxy utility configuration assistance covering profile authoring, troubleshooting, optimization, and best prac... |
+
+---
+
+**共计 8 个 Skill**

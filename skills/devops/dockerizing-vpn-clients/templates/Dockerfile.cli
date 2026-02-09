@@ -1,0 +1,69 @@
+# VPN Client Docker Image - CLI Mode (Web Management)
+# 适用于命令行 VPN 客户端，通过 Web 界面管理
+FROM debian:12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 架构检查 (如果 VPN 客户端有架构限制)
+# RUN set -eux; \
+#     arch="$(dpkg --print-architecture)"; \
+#     if [ "${arch}" != "amd64" ]; then \
+#       echo "ERROR: This VPN client only supports linux/amd64 (current: ${arch})." >&2; \
+#       exit 1; \
+#     fi
+
+# 安装基础依赖
+RUN apt-get update && apt-get install -y \
+    # 网络工具
+    net-tools \
+    iproute2 \
+    iptables \
+    curl \
+    ca-certificates \
+    # 代理
+    dante-server \
+    busybox \
+    # Web 服务器
+    lighttpd \
+    # 其他
+    procps \
+    bash \
+    --no-install-recommends && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# === 安装 VPN 客户端 ===
+# TODO: 根据实际客户端修改
+# COPY deb/vpnclient.deb /tmp/vpnclient.deb
+# RUN apt-get update && \
+#     apt-get install -y /tmp/vpnclient.deb --no-install-recommends && \
+#     rm /tmp/vpnclient.deb && \
+#     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 复制配置文件
+COPY danted.conf.sample /etc/danted.conf.sample
+COPY start.sh /opt/start.sh
+
+# 复制 Web 管理页面资源
+COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
+COPY www/ /var/www/html/
+COPY cgi-bin/ /var/www/cgi-bin/
+
+# 设置权限
+RUN chmod +x /opt/start.sh /var/www/cgi-bin/*.cgi
+
+# 设置工作目录
+# TODO: 根据 VPN 客户端目录调整
+WORKDIR /opt/vpn
+
+# 数据卷 - 配置持久化
+# TODO: 根据 VPN 客户端配置目录调整
+VOLUME ["/opt/vpn/conf"]
+
+# 暴露端口: 1080=SOCKS5, 8080=Web 管理页面
+EXPOSE 1080 8080
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:8080/ >/dev/null || exit 1
+
+CMD ["/opt/start.sh"]
