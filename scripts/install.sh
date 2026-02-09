@@ -7,8 +7,10 @@
 #   ./scripts/install.sh --clean   # 清理已安装的符号链接
 #
 # 支持的工具:
-#   - Cursor:     ~/.cursor/skills/
-#   - Claude Code: ~/.claude/skills/
+#   - Cursor:              ~/.cursor/skills/
+#   - Claude Code:         ~/.claude/skills/
+#   - Gemini CLI:          ~/.gemini/skills/
+#   - Gemini Antigravity:  ~/.gemini/antigravity/skills/
 
 set -euo pipefail
 
@@ -19,6 +21,8 @@ SKILLS_DIR="$REPO_ROOT/skills"
 # 目标目录
 CURSOR_SKILLS_DIR="$HOME/.cursor/skills"
 CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
+GEMINI_SKILLS_DIR="$HOME/.gemini/skills"
+GEMINI_AG_SKILLS_DIR="$HOME/.gemini/antigravity/skills"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -93,13 +97,13 @@ link_skill() {
         if [ "$current_target" = "$src" ]; then
             return 0  # 已正确链接
         else
-            log_warn "$skill_name -> 已存在链接指向 $current_target，将替换"
+            log_warn "${skill_name} -> 已存在链接指向 ${current_target}，将替换"
             if [ "$DRY_RUN" = false ]; then
                 rm "$target"
             fi
         fi
     elif [ -d "$target" ]; then
-        log_warn "$skill_name -> 目标已存在为普通目录: $target，跳过"
+        log_warn "${skill_name} -> 目标已存在为普通目录: ${target}，跳过"
         return 0
     fi
 
@@ -176,18 +180,26 @@ install_skills() {
             # 安装到 Claude Code
             link_skill "$skill_dir" "$CLAUDE_SKILLS_DIR"
 
+            # 安装到 Gemini CLI
+            link_skill "$skill_dir" "$GEMINI_SKILLS_DIR"
+
+            # 安装到 Gemini Antigravity
+            link_skill "$skill_dir" "$GEMINI_AG_SKILLS_DIR"
+
             total=$((total + 1))
         done
     done
 
     if [ "$DRY_RUN" = true ]; then
         echo ""
-        log_dry "共 $total 个 Skill 将被安装到 Cursor 和 Claude Code"
+        log_dry "共 $total 个 Skill 将被安装到 Cursor、Claude Code、Gemini CLI 和 Gemini Antigravity"
     else
         echo ""
         log_info "共安装 $total 个 Skill"
-        log_info "Cursor:     $CURSOR_SKILLS_DIR"
-        log_info "Claude Code: $CLAUDE_SKILLS_DIR"
+        log_info "Cursor:              $CURSOR_SKILLS_DIR"
+        log_info "Claude Code:         $CLAUDE_SKILLS_DIR"
+        log_info "Gemini CLI:          $GEMINI_SKILLS_DIR"
+        log_info "Gemini Antigravity:  $GEMINI_AG_SKILLS_DIR"
     fi
 }
 
@@ -204,6 +216,8 @@ if [ "$CLEAN" = true ]; then
     log_info "清理模式"
     clean_links "$CURSOR_SKILLS_DIR" "Cursor"
     clean_links "$CLAUDE_SKILLS_DIR" "Claude Code"
+    clean_links "$GEMINI_SKILLS_DIR" "Gemini CLI"
+    clean_links "$GEMINI_AG_SKILLS_DIR" "Gemini Antigravity"
     echo ""
     log_info "清理完成"
 else
