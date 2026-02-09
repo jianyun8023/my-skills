@@ -36,6 +36,29 @@ description: Create DTOs and MapStruct converters for Spring Boot layered archit
 | `PageResult<T>` | 偏移分页结果 (records, total, page, size) |
 | `CursorPageResult<T>` | 游标分页结果 (records, nextCursor, hasMore, count) |
 
+```java
+@Data
+@Schema(description = "分页请求基类")
+public class PageReq {
+    @Schema(description = "页码", example = "1")
+    @Min(value = 1, message = "页码不能小于1")
+    private Integer page = 1;
+
+    @Schema(description = "每页大小", example = "20")
+    @Range(min = 1, max = 100, message = "每页大小需在1-100之间")
+    private Integer size = 20;
+}
+
+@Data
+@Schema(description = "创建操作返回ID")
+public class IdResp {
+    @Schema(description = "资源ID")
+    private Long id;
+
+    public IdResp(Long id) { this.id = id; }
+}
+```
+
 ### 包组织
 
 DTO 按业务模块分子目录：
@@ -83,6 +106,31 @@ public class PolicyCreateReq {
 }
 ```
 
+### 更新 DTO 模板
+
+更新 DTO 与创建 DTO 的区别：字段通常**全部可选**（仅传入需要修改的字段），不加 `@NotBlank` 等必填校验。
+
+```java
+@Data
+@Schema(description = "策略更新请求")
+public class PolicyUpdateReq {
+
+    @Schema(description = "策略名称", example = "火灾预警策略V2")
+    private String name;
+
+    @Schema(description = "策略描述")
+    private String description;
+
+    @Schema(description = "告警等级")
+    private AlertLevelEnum alertLevel;
+
+    @Schema(description = "关联设备ID列表")
+    private List<String> deviceIds;
+}
+```
+
+> **设计策略**: 若业务要求全量更新（每次提交完整数据），则 UpdateReq 可加必填校验，与 CreateReq 类似。
+
 ### 响应 DTO 模板
 
 ```java
@@ -113,6 +161,7 @@ public class PolicyCard {
 ```java
 @Data
 @EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 @Schema(description = "策略详情")
 public class PolicyDetail extends PolicyCard {
 
@@ -127,6 +176,8 @@ public class PolicyDetail extends PolicyCard {
     private LocalDateTime updateTime;
 }
 ```
+
+> **继承场景必须**: `@EqualsAndHashCode(callSuper = true)` + `@ToString(callSuper = true)`，否则父类字段不参与 equals/toString。
 
 ### 分页请求继承基类
 
@@ -160,11 +211,43 @@ public class PolicyPageReq extends PageReq {
 | `@JsonProperty` | JSON 字段名 | `@JsonProperty("sourceId")` |
 | `@DateTimeFormat(pattern)` | 查询参数日期解析 | GET 请求的日期参数 |
 
+### 枚举序列化
+
+DTO 中使用枚举类型时，需明确 JSON 序列化/反序列化策略：
+
+```java
+@Getter
+@AllArgsConstructor
+public enum AlertLevelEnum {
+    HIGH("high", "高"),
+    MEDIUM("medium", "中"),
+    LOW("low", "低");
+
+    @JsonValue   // 序列化时输出 value 值（如 "high"）
+    private final String value;
+
+    private final String label;
+
+    @JsonCreator // 反序列化时按 value 匹配
+    public static AlertLevelEnum fromValue(String value) {
+        for (AlertLevelEnum e : values()) {
+            if (e.value.equals(value)) return e;
+        }
+        throw new IllegalArgumentException("未知告警等级: " + value);
+    }
+}
+```
+
+| 注解 | 用途 |
+|------|------|
+| `@JsonValue` | 控制枚举序列化输出（推荐使用业务值而非 name/ordinal） |
+| `@JsonCreator` | 控制枚举反序列化匹配逻辑 |
+
 ## MapStruct Converter
 
-### 统一配置
+### 统一配置（推荐）
 
-所有 Converter 共享的配置：
+所有 Converter 共享的配置，自动忽略未映射字段，无需逐个 `@Mapping(ignore=true)`：
 
 ```java
 @MapperConfig(
@@ -176,10 +259,12 @@ public interface ConverterConfig {
 }
 ```
 
+> **推荐策略**: 优先使用 `config = ConverterConfig.class`（简洁、统一）。仅在需要**显式控制映射关系**（如字段名不同、常量赋值）时才使用 `@Mapping`。
+
 ### Converter 接口模板
 
 ```java
-@Mapper(componentModel = "spring")
+@Mapper(config = ConverterConfig.class)
 public interface PolicyConverter {
 
     // Entity → DTO
@@ -187,22 +272,23 @@ public interface PolicyConverter {
     PolicyDetail toDetail(AlertPolicy entity);
     List<PolicyCard> toCards(List<AlertPolicy> entities);
 
-    // DTO → Entity (忽略自动填充字段)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "deleted", ignore = true)
-    @Mapping(target = "createTime", ignore = true)
-    @Mapping(target = "updateTime", ignore = true)
-    @Mapping(target = "createUser", ignore = true)
-    @Mapping(target = "updateUser", ignore = true)
+    // 创建: DTO → Entity
     AlertPolicy toEntity(PolicyCreateReq req);
+
+    // 更新: DTO 合并到已有 Entity（仅覆盖非 null 字段）
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    void updateEntity(PolicyUpdateReq req, @MappingTarget AlertPolicy entity);
 }
 ```
+
+> **不使用 ConverterConfig 的写法**: 将 `@Mapper(config = ConverterConfig.class)` 替换为 `@Mapper(componentModel = "spring")`，并手动添加 `@Mapping(target = "id", ignore = true)` 等忽略注解。
 
 ### 方法命名规范
 
 | 方法 | 用途 |
 |------|------|
-| `toEntity(Req)` | 请求 DTO → Entity |
+| `toEntity(Req)` | 请求 DTO → 新 Entity（创建） |
+| `updateEntity(Req, @MappingTarget Entity)` | 请求 DTO 合并到已有 Entity（更新） |
 | `toCard(Entity)` | Entity → 列表卡片 DTO |
 | `toDetail(Entity)` | Entity → 详情 DTO |
 | `toResp(Entity)` | Entity → 通用响应 DTO |
@@ -229,32 +315,35 @@ public interface PolicyConverter {
 
 ### 后处理 (@AfterMapping)
 
-用于 null 值标准化和复杂逻辑：
+用于 MapStruct 自动映射后的**补充逻辑**（组装显示名称、计算派生字段等）：
 
 ```java
 @AfterMapping
-default void normalizeStrings(@MappingTarget PolicyCard card) {
-    if (card.getName() == null) card.setName("");
-    if (card.getDescription() == null) card.setDescription("");
+default void enrichCard(AlertPolicy entity, @MappingTarget PolicyCard card) {
+    // 组装显示名称
+    card.setDisplayName(entity.getName() + " (" + entity.getAlertLevel().getLabel() + ")");
 }
 
 @AfterMapping
 default void setDefaultValues(@MappingTarget AlertPolicy entity) {
     if (entity.getEnabled() == null) entity.setEnabled(false);
+    if (entity.getStatus() == null) entity.setStatus(PolicyStatusEnum.DISABLED);
 }
 ```
+
+> **null 值处理**: 简单的 null → 默认值场景优先使用 `@BeanMapping(nullValuePropertyMappingStrategy)` 或 `ConverterConfig` 级别配置，`@AfterMapping` 保留给需要自定义逻辑的场景。
 
 ### 自定义转换 (default 方法)
 
 用于枚举、时间戳等需要逻辑的转换：
 
 ```java
-@Mapper(componentModel = "spring")
+@Mapper(config = ConverterConfig.class)
 public interface AlertConverter {
 
     AlertCard toCard(AlertRecord entity);
 
-    // 自定义时间戳转换
+    // 自定义时间戳转换（MapStruct 自动调用匹配的类型转换方法）
     default LocalDateTime timestampToLocalDateTime(long timestamp) {
         if (timestamp == 0) return null;
         return LocalDateTime.ofInstant(
@@ -270,14 +359,21 @@ public interface AlertConverter {
 }
 ```
 
-### 带 ConverterConfig 的写法
+### 组合 Converter (uses)
+
+当 Entity 含有嵌套对象需要转换时，使用 `uses` 引入其他 Converter：
 
 ```java
-// 使用统一配置（自动 IGNORE 未映射字段）
-@Mapper(config = ConverterConfig.class)
+@Mapper(config = ConverterConfig.class, uses = {TimePlanConverter.class})
 public interface PolicyConverter {
-    // 无需逐个 @Mapping(ignore=true)
-    AlertPolicy toEntity(PolicyCreateReq req);
+    // MapStruct 自动调用 TimePlanConverter 转换嵌套的 TimePlan → TimePlanResp
+    PolicyDetail toDetail(AlertPolicy entity);
+}
+
+@Mapper(config = ConverterConfig.class)
+public interface TimePlanConverter {
+    TimePlanResp toResp(TimePlan entity);
+    List<TimePlanResp> toResps(List<TimePlan> entities);
 }
 ```
 
