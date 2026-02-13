@@ -1,0 +1,228 @@
+// ==========================================
+// 飞牛 OS (FnOS) Alloy 完整配置示例
+// 包含: System Journal, Docker 容器, 敏感数据脱敏, 噪音过滤
+// ==========================================
+
+// ==========================================
+// 1. 全局日志配置 (调试用)
+// ==========================================
+
+logging {
+  level  = "info" // 可改为 "debug" 进行排查
+  format = "logfmt"
+}
+
+// ==========================================
+// 2. 系统日志 (Systemd Journal)
+// ==========================================
+
+loki.source.journal "system" {
+  max_age = "12h"
+  
+  labels = {
+    job      = "systemd-journal",
+    log_type = "system",
+  }
+  
+  relabel_rules = discovery.relabel.journal_relabel.rules
+  forward_to    = [loki.write.to_loki.receiver]
+}
+
+discovery.relabel "journal_relabel" {
+  targets = []
+  
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "nodename"
+  }
+  
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "program"
+  }
+  
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+}
+
+// ==========================================
+// 3. FnOS 应用与服务日志
+// ==========================================
+
+// 3.1 Trim 应用日志 (Photos, Media, etc.)
+loki.source.file "trim_apps" {
+  targets = [
+    {
+      __path__ = "/var/log/apps/trim.*.log",
+      job      = "fnos-apps",
+      category = "trim-app",
+    }
+  ]
+  forward_to = [loki.write.to_loki.receiver]
+}
+
+// 3.2 Nginx 安全日志 (Access/Error)
+loki.source.file "nginx_security" {
+  targets = [
+    {
+      __path__ = "/usr/trim/nginx/logs/access.log",
+      job      = "fnos-nginx-access",
+      service  = "nginx",
+      category = "security",
+    },
+    {
+      __path__ = "/usr/trim/nginx/logs/error.log",
+      job      = "fnos-nginx-error",
+      service  = "nginx",
+      level    = "error",
+    },
+  ]
+  forward_to = [loki.write.to_loki.receiver]
+}
+
+// ==========================================
+// 4. Docker 容器日志发现与采集
+// ==========================================
+
+// 4.1 发现运行中的容器
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  
+  filter {
+    name   = "status"
+    values = ["running"]
+  }
+}
+
+// 4.2 提取 Docker 标签 (容器名, 镜像等)
+discovery.relabel "docker_labels" {
+  targets = discovery.docker.containers.targets
+  
+  // 提取容器名称 (去掉开头的 /)
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  
+  // 提取镜像名称
+  rule {
+    source_labels = ["__meta_docker_container_image"]
+    target_label  = "image"
+  }
+  
+  // 提取 Docker Compose 项目名
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  
+  // 提取 Docker Compose 服务名
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+// 4.3 采集 Docker 日志
+// 使用 discovery.relabel.docker_labels.output 获取 relabel 后的 targets
+loki.source.docker "docker_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.docker_labels.output
+  forward_to = [loki.process.advanced_processing.receiver]
+}
+
+// ==========================================
+// 5. 高级日志处理 (解析, 标准化, 脱敏, 过滤)
+// ==========================================
+
+loki.process "advanced_processing" {
+  forward_to = [loki.write.to_loki.receiver]
+  
+  // 5.1 尝试解析 JSON 日志
+  stage.json {
+    expressions = {
+      level   = "level",
+      message = "message",
+      msg     = "msg",
+    }
+  }
+  
+  // 5.2 通用日志级别提取 (正则)
+  stage.regex {
+    expression = "(?i)\\b(?P<extracted_level>TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|CRITICAL|CRIT|FATAL|PANIC)\\b"
+  }
+  
+  // 5.3 日志级别标准化为大写
+  stage.template {
+    source   = "extracted_level"
+    template = "{{ .Value | ToUpper }}"
+  }
+  
+  // 5.4 将日志级别添加为标签
+  stage.labels {
+    values = {
+      level = "extracted_level",
+    }
+  }
+  
+  // 5.5 敏感信息脱敏 (Masking)
+  // 隐藏 password=xxx
+  stage.replace {
+    expression = "(?i)(password|passwd|pwd)\\s*[=:]\\s*[\"']?\\S+"
+    replace    = "$1=***"
+  }
+  
+  // 隐藏 Token / API Key
+  stage.replace {
+    expression = "(?i)(token|api_key|apikey|secret)\\s*[=:]\\s*[\"']?\\S+"
+    replace    = "$1=***"
+  }
+  
+  // 隐藏 Bearer Token
+  stage.replace {
+    expression = "(?i)(authorization|auth)\\s*:\\s*[\"']?Bearer\\s+\\S+"
+    replace    = "$1: Bearer ***"
+  }
+  
+  // 5.6 噪音过滤 (Filtering)
+  // 丢弃健康检查日志
+  stage.drop {
+    expression          = ".*(health|healthcheck|heartbeat).*"
+    drop_counter_reason = "health_check"
+  }
+  
+  // 针对特定"吵闹"的容器丢弃 DEBUG 日志
+  stage.match {
+    selector = "{container=\"noisy-app\"}"
+    stage.drop {
+      expression          = ".*DEBUG.*"
+      drop_counter_reason = "noisy_debug"
+    }
+  }
+}
+
+// ==========================================
+// 6. 发送到 Loki
+// ==========================================
+
+loki.write "to_loki" {
+  endpoint {
+    // 实际使用时通常使用变量替换, 如 {{LOKI_URL}}
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+  
+  // 添加全局外部标签
+  external_labels = {
+    cluster  = "fnos-cluster",
+    region   = "local",
+    platform = "fnos",
+  }
+}
