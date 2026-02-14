@@ -1,14 +1,15 @@
 # Skill 目录索引
 
-> 自动生成于 2026-02-13 12:34:05，请勿手动编辑。
+> 自动生成于 2026-02-14 11:00:50，请勿手动编辑。
 > 运行 `./scripts/catalog.sh` 重新生成。
 
-## DevOps & CI/CD (2)
+## DevOps & CI/CD (3)
 
 | Skill | 描述 |
 |-------|------|
 | [`dockerizing-vpn-clients`](skills/devops/dockerizing-vpn-clients/) | Use when containerizing VPN clients into Docker, supporting both GUI (VNC) and CLI (Web management) modes with danted... (附: templates) |
 | [`github-actions-multi-platform-build`](skills/devops/github-actions-multi-platform-build/) | Use when creating or updating GitHub Actions workflows for multi-platform Docker image builds (amd64/arm64) with Buil... |
+| [`grafana-alloy-hcl`](skills/devops/grafana-alloy-hcl/) | Grafana Alloy HCL 配置文件编写指南。涵盖基本语法、核心组件（Loki/Prometheus）、日志采集、数据处理流水线及 FnOS 特定配置模式。Use when editing .alloy files, conf... |
 
 ## Java 技术栈 (5)
 
@@ -35,4 +36,4 @@
 
 ---
 
-**共计 10 个 Skill**
+**共计 11 个 Skill**
