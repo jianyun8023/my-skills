@@ -52,24 +52,36 @@ if adult_tags & book_tags:
 
 ### 规则 3：日系漫画/轻小说（硬性淘汰）
 
-检查字段：`title`, `authors`, `publisher`
+检查字段：`title`, `authors`, `publisher`, `title_sort`
 
-- **出版社黑名单**：`株式会社`, `集英社`, `講談社`, `小学館`, `角川`, `KADOKAWA`, `スクウェア・エニックス`, `白泉社`
-- **书名特征**：全片假名/平假名标题、含 `巻`, `コミック`, `マンガ`, `ライトノベル`
+- **出版社黑名单**：`株式会社`, `集英社`, `講談社`, `小学館`, `角川`, `KADOKAWA`, `スクウェア・エニックス`, `白泉社`, `MediaFactory`
+- **书名特征（语言/关键词）**：
+    - 全片假名/平假名标题（如 `タメ口後輩ギャル...`）
+    - 含 `卷`, `巻`, `コミック`, `マンガ`, `ライトノベル`, `Vol.`, `Volume`
+    - **知名轻小说英文/罗马音标题**：如 `NO GAME NO LIFE`, `Sword Art Online`, `Re:Zero` 等
+- **作者特征**：知名日系作者名或译音（如 `榎宫佑`, `伏见司`, `西尾维新`）
 - **排序名特征**：`title_sort` 为全片假名
 
 ```python
-jp_publishers = ['株式会社', '集英社', '講談社', '小学館', '角川', 'KADOKAWA']
+jp_publishers = {'株式会社', '集英社', '講談社', '小学館', '角川', 'KADOKAWA', 'MediaFactory'}
+jp_authors = {'榎宫佑', '伏见司', '西尾维新', '川原砾', '晓佳奈'}
+ln_titles = {'no game no life', 'sword art online', 're:zero', 'overlord'}
+
 publisher = info.get('publisher', '') or ''
+authors = set(info.get('authors', []))
+title_lower = info.get('title', '').lower()
+
 if any(kw in publisher for kw in jp_publishers):
     fail("日系出版社", publisher)
+if authors & jp_authors:
+    fail("日系作者", authors & jp_authors)
+if any(t in title_lower for t in ln_titles):
+    fail("知名日系轻小说标题", title_lower)
 
 import re
-title = info.get('title', '')
-title_sort = info.get('title_sort', '')
 katakana_re = re.compile(r'^[\u30A0-\u30FF\u3040-\u309Fー・\s\d]+$')
-if katakana_re.match(title_sort):
-    fail("日系漫画(片假名标题)", title)
+if katakana_re.match(info.get('title_sort', '')):
+    fail("日系漫画(片假名标题)", info.get('title', ''))
 ```
 
 ### 规则 4：作者/出版社含邮箱或垃圾信息（硬性淘汰）
@@ -183,61 +195,58 @@ email_re = re.compile(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
 katakana_re = re.compile(r'^[\u30A0-\u30FF\u3040-\u309Fー・\s\d]+$')
 
 bad_publishers = {'epub掌上书苑', 'Unknown', 'calibre'}
-jp_publishers = ['株式会社', '集英社', '講談社', '小学館', '角川', 'KADOKAWA',
-                 'スクウェア・エニックス', '白泉社']
-adult_tags = {'18禁', '成人', '色情', 'エロ', 'r18', 'r-18', 'adult',
-              'erotica', 'hentai', 'nsfw'}
+jp_publishers = {'株式会社', '集英社', '講談社', '小学館', '角川', 'KADOKAWA', 'MediaFactory'}
+jp_authors = {'榎宫佑', '伏见司', '西尾维新', '川原砾', '晓佳奈'}
+ln_titles = {'no game no life', 'sword art online', 're:zero', 'overlord'}
+adult_tags = {'18禁', '成人', '色情', 'エロ', 'r18', 'r-18', 'adult', 'erotica', 'hentai', 'nsfw'}
 spam_author_kw = ['administer', 'administrator', 'admin']
 spam_info_kw = ['关注', '微信', '送书', '公众号', '书舍', '书群', '免费', '加群', '扫码', 'QQ群']
 
 def check_book(book_id, info):
-    """返回 (reasons, warnings)，reasons 为硬性淘汰，warnings 为警告"""
-    reasons = []
-    warnings = []
+    reasons, warnings = [], []
     langs = info.get('languages', [])
     publisher = info.get('publisher', '') or ''
     authors = info.get('authors', [])
+    authors_set = set(authors)
     title = info.get('title', '')
+    title_lower = title.lower()
     title_sort = info.get('title_sort', '')
     tags = info.get('tags', [])
     comments = info.get('comments', '') or ''
-    author_pub_text = [str(a) for a in authors] + [publisher]
 
     # 规则 1: 非中文
     if not any(l in ['zho', 'chi'] for l in langs):
         reasons.append(f'非中文({langs})')
 
     # 规则 2: 色情/成人
-    book_tags_lower = {t.lower() for t in tags}
-    matched = adult_tags & book_tags_lower
+    matched = adult_tags & {t.lower() for t in tags}
     if matched:
-        reasons.append(f'色情/成人内容({matched})')
+        reasons.append(f'色情内容({matched})')
 
-    # 规则 3: 日系漫画
+    # 规则 3: 日系漫画/轻小说
     if any(kw in publisher for kw in jp_publishers):
         reasons.append(f'日系出版社({publisher})')
+    if authors_set & jp_authors:
+        reasons.append(f'日系作者({authors_set & jp_authors})')
+    if any(t in title_lower for t in ln_titles) or '卷' in title or '巻' in title:
+        reasons.append(f'日系书名特征({title})')
     if katakana_re.match(title_sort):
-        reasons.append(f'日系漫画(片假名标题)')
+        reasons.append('片假名标题')
 
-    # 规则 4: 作者/出版社邮箱 + 垃圾信息 (硬性淘汰)
+    # 规则 4: 垃圾信息/邮箱
     for a in authors:
-        if email_re.search(str(a)):
-            reasons.append(f'作者含邮箱({a})')
-    if email_re.search(publisher):
-        reasons.append(f'出版社含邮箱({publisher})')
-    for text in author_pub_text:
+        if email_re.search(str(a)): reasons.append(f'作者邮箱({a})')
+    if email_re.search(publisher): reasons.append(f'出版社邮箱({publisher})')
+    for text in [str(a) for a in authors] + [publisher]:
         if any(kw in text.lower() for kw in spam_author_kw):
-            reasons.append(f'垃圾作者名({text})')
-            break
-    for text in author_pub_text:
+            reasons.append(f'垃圾作者/出版({text})')
         if any(kw in text for kw in spam_info_kw):
-            reasons.append(f'垃圾推广信息({text})')
-            break
+            reasons.append(f'垃圾推广({text})')
 
-    # 规则 4b: 仅标签含推广水印 (警告)
+    # 规则 4b: 仅标签含推广 (警告)
     for tag in tags:
         if any(kw in tag for kw in spam_info_kw):
-            warnings.append(f'标签含推广水印({tag})')
+            warnings.append(f'标签水印({tag})')
 
     # 规则 5: 低质出版源
     if publisher in bad_publishers:
