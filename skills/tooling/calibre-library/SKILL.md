@@ -127,7 +127,11 @@ tags:"科幻"
 publisher:"重庆出版社"
 series:"冰与火之歌"
 isbn:9787229042066
+date:>2025-01-01                     # 2025年之后入库（timestamp，非出版日期）
+date:>30daysago                      # 最近30天入库
+date:>yesterday                      # 昨天及之后入库
 author:"刘慈欣" AND tags:"科幻"
+author:"刘慈欣" AND date:>7daysago   # 组合：某作者最近7天入库
 ```
 
 ### 2. 书籍详情
@@ -225,13 +229,36 @@ GET {BASE}{item_url}?num={count}&offset={offset}
 
 响应与搜索接口相同，返回 `book_ids` 数组。
 
-### 6. 最新书籍
+### 6. 最新入库
+
+通过搜索接口的 `date:` 过滤器按添加时间查询，`date:` 对应书籍的 `timestamp`（入库时间），而非 `pubdate`（出版日期）。
 
 ```
-GET {BASE}/ajax/books_in/6e6577657374/30/{LIB}?num={count}
+GET {BASE}/ajax/search?query=date:>{date_expr}&num={count}&sort=date&sort_order=desc&library_id={LIB}
 ```
 
-按入库时间倒序返回 `book_ids`。
+`date_expr` 支持两种格式：
+
+| 格式 | 示例 | 说明 |
+|------|------|------|
+| 绝对日期 | `date:>2025-03-01` | 指定日期之后入库的书籍 |
+| 相对日期 | `date:>30daysago` | 最近 30 天入库 |
+| 相对日期 | `date:>7daysago` | 最近 7 天入库 |
+| 相对日期 | `date:>yesterday` | 昨天及之后入库 |
+
+配合 `sort=date&sort_order=desc` 按入库时间倒序排列。
+
+响应示例：
+
+```json
+{
+  "total_num": 112,
+  "sort_order": "desc",
+  "sort": "date",
+  "book_ids": [274770, 274769, 274768],
+  "query": "date:>30daysago"
+}
+```
 
 ### 7. 下载与封面
 
@@ -283,8 +310,9 @@ GET {BASE}/get/thumb/{book_id}/{LIB}
 
 ### 查看最新入库
 
-1. 请求最新书籍接口获取 `book_ids`
-2. 批量获取详情并展示
+1. 搜索：`curl -sL $AUTH "$BASE_URL/ajax/search?query=date:>7daysago&num=20&sort=date&sort_order=desc&library_id=$LIB_ID"`
+2. 提取 `book_ids`，批量获取详情并展示
+3. 根据用户需求调整时间范围（`7daysago`、`30daysago`、具体日期等）
 
 ## 输出格式
 
