@@ -21,328 +21,189 @@ description: >-
 
 ## 筛选规则
 
-### 规则 1：非中文书籍（硬性淘汰）
+**执行顺序**：规则4 → 规则5 → 规则3 → 规则2 → 规则1 → 规则6（高频问题优先，使用短路逻辑）
 
-检查字段：`languages`
+### 规则 4: 作者/出版社含垃圾信息（优先检查，高频问题）
 
-- **不合格**：`languages` 不包含 `zho` 或 `chi`
-- 即使书名是中文，只要语言标记非中文即判定不合格（说明元数据有误）
+**检查字段**：`authors`, `publisher`
 
+**判定标准**：
+- 含邮箱地址 → 删除
+- 含黑名单关键词（admin, administrator, 关注, 微信, 送书, 公众号等） → 删除
+
+**关键逻辑**：
 ```python
-langs = info.get('languages', [])
-is_chinese = any(lang in ['zho', 'chi'] for lang in langs)
-if not is_chinese:
-    fail("非中文", langs)
+email_re = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
+spam_kw = ['admin', 'administrator', '关注', '微信', '送书', '公众号', '书舍']
+
+if email_re.match(author) or any(kw in author for kw in spam_kw):
+    return 'DELETE'
 ```
 
-### 规则 2：色情/成人内容（硬性淘汰）
+完整实现见 [scripts/screen.py](scripts/screen.py)
 
-检查字段：`title`, `tags`, `comments`, `publisher`
+### 规则 5: 低质出版源（高频问题）
 
-- **标签黑名单**：`18禁`, `成人`, `色情`, `エロ`, `R18`, `R-18`, `adult`, `erotica`, `hentai`, `NSFW`
-- **出版社黑名单**：已知成人内容出版源
-- **书名/简介关键词**：明显色情暗示性词汇
+**检查字段**：`publisher`
 
-```python
-adult_tags = {'18禁', '成人', '色情', 'エロ', 'R18', 'R-18', 'adult', 'erotica', 'hentai', 'NSFW'}
-book_tags = set(t.lower() for t in info.get('tags', []))
-if adult_tags & book_tags:
-    fail("色情/成人内容", matched_tags)
-```
+**判定标准**：
+- 出版社为 `epub掌上书苑`, `Unknown`, `calibre` → 删除
+- 出版社为纯数字（如 `2000`） → 删除
 
-### 规则 3：日系漫画/轻小说（硬性淘汰）
-
-检查字段：`title`, `authors`, `publisher`, `title_sort`
-
-- **出版社黑名单**：`株式会社`, `集英社`, `講談社`, `小学館`, `角川`, `KADOKAWA`, `スクウェア・エニックス`, `白泉社`, `MediaFactory`
-- **书名特征（语言/关键词）**：
-    - 全片假名/平假名标题（如 `タメ口後輩ギャル...`）
-    - 含 `卷`, `巻`, `コミック`, `マンガ`, `ライトノベル`, `Vol.`, `Volume`
-    - **知名轻小说英文/罗马音标题**：如 `NO GAME NO LIFE`, `Sword Art Online`, `Re:Zero` 等
-- **作者特征**：知名日系作者名或译音（如 `榎宫佑`, `伏见司`, `西尾维新`）
-- **排序名特征**：`title_sort` 为全片假名
-
-```python
-jp_publishers = {'株式会社', '集英社', '講談社', '小学館', '角川', 'KADOKAWA', 'MediaFactory'}
-jp_authors = {'榎宫佑', '伏见司', '西尾维新', '川原砾', '晓佳奈'}
-ln_titles = {'no game no life', 'sword art online', 're:zero', 'overlord'}
-
-publisher = info.get('publisher', '') or ''
-authors = set(info.get('authors', []))
-title_lower = info.get('title', '').lower()
-
-if any(kw in publisher for kw in jp_publishers):
-    fail("日系出版社", publisher)
-if authors & jp_authors:
-    fail("日系作者", authors & jp_authors)
-if any(t in title_lower for t in ln_titles):
-    fail("知名日系轻小说标题", title_lower)
-
-import re
-katakana_re = re.compile(r'^[\u30A0-\u30FF\u3040-\u309Fー・\s\d]+$')
-if katakana_re.match(info.get('title_sort', '')):
-    fail("日系漫画(片假名标题)", info.get('title', ''))
-```
-
-### 规则 4：作者/出版社含邮箱或垃圾信息（硬性淘汰）
-
-检查字段：`authors`, `publisher`
-
-- 作者/出版社含邮箱 → 硬性淘汰
-- 作者/出版社含垃圾关键词 → 硬性淘汰
-
-**作者/出版社黑名单关键词**：`Administer`, `Administrator`, `admin`
-
-**垃圾信息关键词**（匹配 `authors`, `publisher`）：
-
-`关注`, `微信`, `送书`, `公众号`, `书舍`, `书群`, `免费`, `加群`, `扫码`, `QQ群`
-
-```python
-import re
-email_re = re.compile(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
-spam_author_kw = ['administer', 'administrator', 'admin']
-spam_info_kw = ['关注', '微信', '送书', '公众号', '书舍', '书群', '免费', '加群', '扫码', 'QQ群']
-
-authors = info.get('authors', [])
-publisher = info.get('publisher', '') or ''
-author_pub_text = [str(a) for a in authors] + [publisher]
-
-for author in authors:
-    if email_re.search(str(author)):
-        fail("作者含邮箱", author)
-if email_re.search(publisher):
-    fail("出版社含邮箱", publisher)
-
-for text in author_pub_text:
-    if any(kw in text.lower() for kw in spam_author_kw):
-        fail("垃圾作者名", text)
-    if any(kw in text for kw in spam_info_kw):
-        fail("垃圾推广信息", text)
-```
-
-### 规则 4b：标签含推广水印（警告 — 建议清理标签）
-
-检查字段：`tags`
-
-仅标签含推广关键词，但作者/出版社正常 → 书籍本身可能合格，标签被污染。
-
-**判定**：标记为 `⚠️ 警告`，建议清理标签而非删除书籍。
-
-```python
-tags = info.get('tags', [])
-for tag in tags:
-    if any(kw in tag for kw in spam_info_kw):
-        warn("标签含推广水印", tag)
-```
-
-### 规则 5：低质出版源（硬性淘汰）
-
-检查字段：`publisher`
-
-**出版社黑名单**：
-
-| 出版社 | 原因 |
-|--------|------|
-| `epub掌上书苑` | 非正规出版，通常为网络抓取 |
-| `Unknown` | 元数据缺失 |
-| `calibre` | Calibre 默认值，未修正 |
-
+**关键逻辑**：
 ```python
 bad_publishers = {'epub掌上书苑', 'Unknown', 'calibre'}
-publisher = info.get('publisher', '') or ''
-if publisher in bad_publishers:
-    fail("低质出版源", publisher)
+if publisher in bad_publishers or re.match(r'^\d+$', publisher):
+    return 'DELETE'
 ```
 
-### 规则 6：元数据严重缺失（警告）
+### 规则 3: 日系漫画/轻小说
 
-同时满足以下全部条件时判定不合格：
+**检查字段**：`title`, `authors`, `publisher`, `title_sort`
 
-- `publisher` 为空或 null
-- `comments` 为空或 null
-- `tags` 为空列表
+**判定标准**：
+- 出版社含：株式会社、集英社、講談社、小学館、角川、KADOKAWA 等 → 删除
+- 作者为：榎宫佑、伏见司、西尾维新、川原砾、晓佳奈 等 → 删除
+- 书名含日文"巻"（注意：不检测中文"卷"） → 删除
+- 书名含：コミック、マンガ、ライトノベル → 删除
+- 知名轻小说标题：NO GAME NO LIFE, Sword Art Online, Re:Zero 等 → 删除
+- `title_sort` 为全片假名 → 删除
 
+**注意事项**：
+- 不检测中文"卷"，因学术丛书常用"第X卷"
+- 不检测 `Vol.`/`Volume`，因正规出版物也使用
+
+### 规则 2: 色情/成人内容
+
+**检查字段**：`tags`
+
+**判定标准**：
+- 标签含：18禁、成人、色情、エロ、R18、adult、erotica、hentai、NSFW → 删除
+
+**关键逻辑**：
 ```python
-no_publisher = not info.get('publisher')
-no_comments = not info.get('comments')
-no_tags = not info.get('tags')
-if no_publisher and no_comments and no_tags:
-    fail("元数据缺失(无出版社/简介/标签)")
+adult_tags = {'18禁', '成人', '色情', 'エロ', 'r18', 'adult', 'erotica', 'hentai', 'nsfw'}
+if adult_tags & {t.lower() for t in book_tags}:
+    return 'DELETE'
 ```
+
+### 规则 1: 非中文书籍（智能判断）
+
+**检查字段**：`languages`, `title`, `authors`
+
+**判定标准**：
+- `languages` 不含 `zho` 或 `chi` 且书名/作者也不含中文 → 删除
+- `languages` 不含 `zho` 或 `chi` 但书名/作者含中文 → 合格（忽略语言标记问题）
+
+**智能判断逻辑**：以书名/作者的实际语言为准，忽略元数据中的语言标记错误
+
+**关键逻辑**：
+```python
+def contains_chinese(text):
+    return bool(re.search(r'[\u4e00-\u9fff]', str(text)))
+
+is_chinese = any(lang in ['zho', 'chi'] for lang in langs)
+if not is_chinese:
+    has_chinese_content = contains_chinese(title) or any(contains_chinese(a) for a in authors)
+    return 'PASS' if has_chinese_content else 'DELETE'
+```
+
+### 规则 4b: 标签含推广水印（警告级）
+
+**检查字段**：`tags`
+
+**判定标准**：
+- 仅标签含推广关键词，但作者/出版社正常 → 更新（清理标签）
+
+**说明**：书籍本身可能合格，仅标签被污染，建议清理标签而非删除书籍。
+
+### 规则 6: 元数据严重缺失（警告级）
+
+**检查字段**：`publisher`, `comments`, `tags`
+
+**判定标准**：
+- 同时满足：无出版社 AND 无简介 AND 无标签 → 更新（补充元数据）
 
 ## 操作流程
 
-### 批量筛选（推荐）
+### 批量筛选
 
-1. 使用 `calibre-library` 技能的搜索接口拉取目标书籍 ID
-
-```bash
-curl -sL "$BASE_URL/ajax/search?query=date:>14daysago&num=100&sort=date&sort_order=desc&library_id=$LIB_ID"
-```
-
-2. 批量获取详情（每批不超过 50 个 ID）
+1. 准备书籍元数据 JSON 文件：
 
 ```bash
-curl -sL "$BASE_URL/ajax/books?ids=ID1,ID2,...&library_id=$LIB_ID"
+# 使用 calibre-library 技能获取书籍数据
+# 将书籍元数据保存为 books.json
+# 格式：{"book_id": {"title": "...", "authors": [...], ...}, ...}
 ```
 
-3. 使用 Python 脚本批量筛选，将结果写入临时文件
+2. 运行筛选脚本：
 
-```python
-import json, re
-
-email_re = re.compile(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
-katakana_re = re.compile(r'^[\u30A0-\u30FF\u3040-\u309Fー・\s\d]+$')
-
-bad_publishers = {'epub掌上书苑', 'Unknown', 'calibre'}
-jp_publishers = {'株式会社', '集英社', '講談社', '小学館', '角川', 'KADOKAWA', 'MediaFactory'}
-jp_authors = {'榎宫佑', '伏见司', '西尾维新', '川原砾', '晓佳奈'}
-ln_titles = {'no game no life', 'sword art online', 're:zero', 'overlord'}
-adult_tags = {'18禁', '成人', '色情', 'エロ', 'r18', 'r-18', 'adult', 'erotica', 'hentai', 'nsfw'}
-spam_author_kw = ['administer', 'administrator', 'admin']
-spam_info_kw = ['关注', '微信', '送书', '公众号', '书舍', '书群', '免费', '加群', '扫码', 'QQ群']
-
-def check_book(book_id, info):
-    reasons, warnings = [], []
-    langs = info.get('languages', [])
-    publisher = info.get('publisher', '') or ''
-    authors = info.get('authors', [])
-    authors_set = set(authors)
-    title = info.get('title', '')
-    title_lower = title.lower()
-    title_sort = info.get('title_sort', '')
-    tags = info.get('tags', [])
-    comments = info.get('comments', '') or ''
-
-    # 规则 1: 非中文
-    if not any(l in ['zho', 'chi'] for l in langs):
-        reasons.append(f'非中文({langs})')
-
-    # 规则 2: 色情/成人
-    matched = adult_tags & {t.lower() for t in tags}
-    if matched:
-        reasons.append(f'色情内容({matched})')
-
-    # 规则 3: 日系漫画/轻小说
-    if any(kw in publisher for kw in jp_publishers):
-        reasons.append(f'日系出版社({publisher})')
-    if authors_set & jp_authors:
-        reasons.append(f'日系作者({authors_set & jp_authors})')
-    if any(t in title_lower for t in ln_titles) or '卷' in title or '巻' in title:
-        reasons.append(f'日系书名特征({title})')
-    if katakana_re.match(title_sort):
-        reasons.append('片假名标题')
-
-    # 规则 4: 垃圾信息/邮箱
-    for a in authors:
-        if email_re.search(str(a)): reasons.append(f'作者邮箱({a})')
-    if email_re.search(publisher): reasons.append(f'出版社邮箱({publisher})')
-    for text in [str(a) for a in authors] + [publisher]:
-        if any(kw in text.lower() for kw in spam_author_kw):
-            reasons.append(f'垃圾作者/出版({text})')
-        if any(kw in text for kw in spam_info_kw):
-            reasons.append(f'垃圾推广({text})')
-
-    # 规则 4b: 仅标签含推广 (警告)
-    for tag in tags:
-        if any(kw in tag for kw in spam_info_kw):
-            warnings.append(f'标签水印({tag})')
-
-    # 规则 5: 低质出版源
-    if publisher in bad_publishers:
-        reasons.append(f'低质出版源({publisher})')
-
-    # 规则 6: 元数据缺失
-    if not publisher and not comments and not tags:
-        reasons.append('元数据缺失(无出版社/简介/标签)')
-
-    return reasons, warnings
+```bash
+cd skills/tooling/calibre-book-screening
+python scripts/screen.py --input books.json --output report.md
 ```
 
-4. 输出筛选结果
+3. 脚本会自动：
+   - 按优化顺序（4→5→3→2→1→6）执行规则检查
+   - 使用短路逻辑（首个"删除"规则命中后立即返回）
+   - 统计高频问题源（TOP 不合格出版社/作者/标签）
+   - 生成分组报告（按来源分组，批量问题优先展示）
 
 ### 单本核查
 
-对用户指定的 book_id 获取详情后，逐条执行全部 6 条规则，输出详细核查报告。
+对单本书籍进行全部 6 条规则检查，输出详细核查报告。
 
 ## 输出格式
 
-### 批量筛选结果
+报告包含三个部分：
 
-按不合格原因分组，每组内按 ID 降序（最新在前）：
+### 1. 高频问题源统计（当前批次）
 
-```
-### 非中文书籍
-- **Kairos** (ID: 274750) — Jenny Erpenbeck | 语言: deu, eng
-- **Technofeudalism** (ID: 274724) — Yanis Varoufakis | 语言: eng
+展示 TOP 不合格出版社、作者、标签及其出现频率。
 
-### 日系出版社
-- **タメ口後輩ギャル...** (ID: 274767) — 緒二葉 | 出版社: 株式会社 集英社
+### 2. 待删除清单
 
-### 低质出版源 (epub掌上书苑)
-- **推背图（金圣叹版）** (ID: 274737) — 李淳风 袁天罡
+按来源分组（高频问题优先展示）：
+- 低质出版源: epub掌上书苑（X本）
+- 作者含邮箱: xxx@xxx.com（X本）
+- 日系出版社: 株式会社 集英社（X本）
+- 非中文书籍（X本）
+- ...
 
-### 作者/出版社含邮箱或垃圾信息
-- **一个人的朝圣** (ID: 274764) — asd44858@163.com
-- **某书名** (ID: XXXXX) — Administer
+### 3. 待更新清单
 
-### 元数据缺失
-- **欧·亨利短篇小说精选** (ID: 274735) — 欧·亨利 | 无出版社/简介/标签
+按问题类型分组：
+- 语言标记错误（修正为 zho）
+- 标签含推广水印（清理标签）
+- 元数据缺失（补充信息）
 
-### ⚠️ 标签含推广水印（警告，建议清理标签）
-- **巴比松大饭店** (ID: 274752) — 保利娜·布伦 | 标签: 公众号：绿悠书舍
-```
+详细输出示例见 [examples.md](examples.md)
 
-末尾附汇总：
+## 判定结果
 
-```
-共检查 N 本
-❌ 不合格 M 本 (占比 X%)
-  - 非中文: A 本
-  - 色情/成人: B 本
-  - 日系漫画: C 本
-  - 邮箱/垃圾信息: D 本
-  - 低质出版源: E 本
-  - 元数据缺失: F 本
-⚠️ 警告 W 本（标签推广水印，建议清理标签）
-```
+每本书只能是以下之一：
 
-### 单本核查报告
-
-```
-## 书籍核查：《书名》(ID: XXXXX)
-
-| 检查项 | 结果 | 详情 |
-|--------|------|------|
-| 中文书籍 | ✅/❌ | languages: [...] |
-| 色情/成人 | ✅/❌ | tags: [...] |
-| 非日系漫画 | ✅/❌ | publisher: ... |
-| 作者/出版社无邮箱 | ✅/❌ | ... |
-| 作者/出版社无垃圾信息 | ✅/❌ | 作者/出版社是否含推广关键词 |
-| 标签无推广水印 | ✅/⚠️ | tags 是否含推广关键词（警告级） |
-| 出版源合规 | ✅/❌ | publisher: ... |
-| 元数据完整 | ✅/❌ | publisher/comments/tags |
-
-**结论**: 合格 / 不合格（原因: ...）/ 合格但有警告（标签需清理）
-```
+| 判定结果 | 说明 | 操作建议 |
+|---------|------|---------|
+| **待删除** | 触发硬性淘汰规则（规则1非中文、规则2色情、规则3日系、规则4垃圾、规则5低质出版源） | 删除书籍 |
+| **待更新** | 触发警告规则（规则4b标签水印、规则6元数据缺失） | 修正元数据 |
+| **合格** | 通过全部检查（包括语言标记错误但书名/作者为中文的情况） | 保留 |
 
 ## Checklist
 
 使用前：
 - [ ] `calibre-library` 技能的配置已就绪
 - [ ] 确认操作为只读，不修改书库数据
+- [ ] 准备好书籍元数据 JSON 文件
 
 使用后：
 - [ ] 所有书籍均经过全部 6 条规则检查
-- [ ] 输出格式按分组呈现，附汇总统计
+- [ ] 输出包含频率统计、待删除清单、待更新清单
 - [ ] 未执行任何写入操作
 
-## 常见错误
+## 常见陷阱
 
-| 错误做法 | 正确做法 |
-|----------|----------|
-| 仅凭书名语种判断 | 以 `languages` 字段为准，书名中文但标记 eng 仍判不合格 |
-| 忽略 `title_sort` 字段 | 用 `title_sort` 检测片假名标题更准确 |
-| 只检查部分规则 | 每本书必须经过全部 6 条规则 |
-| 一次请求过多详情 | 批量接口每次不超过 50 个 ID |
-| 未统计汇总 | 始终在末尾附上汇总数据 |
+- ❌ 仅凭 `languages` 字段判断 → ✅ 以书名/作者实际语言为准（忽略语言标记错误）
+- ❌ 检测中文"卷"字 → ✅ 只检测日文"巻"（学术丛书常用"第X卷"）
+- ❌ 不按优化顺序检查 → ✅ 使用短路逻辑，高频问题优先（规则4→5→3→2→1→6）
+- ❌ 一次请求100+ ID → ✅ 批量接口每次 ≤ 50 个
