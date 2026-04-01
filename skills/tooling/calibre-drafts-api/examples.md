@@ -154,7 +154,9 @@ curl "http://localhost:3000/api/metadata/search?query=9787536692930"
 curl "http://localhost:3000/api/metadata/search?query=三体%20刘慈欣"
 ```
 
-## 删除草稿
+## 场景 5：提交删除书籍草稿（危险操作）
+
+⚠️ **警告**：这是危险操作，会创建"删除书籍"的待审核草稿，审核通过后书籍将永久删除！
 
 `ids` 为 **Calibre 书籍 ID**（与 `POST /api/drafts/update` 里每条 `updates[].id` 含义相同），不是草稿记录 ID。
 
@@ -169,6 +171,14 @@ Content-Type: application/json
 }
 ```
 
+或使用 curl：
+
+```bash
+curl -X POST http://localhost:3000/api/drafts/delete \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["123", "456", "789"]}'
+```
+
 **响应示例**：
 
 ```json
@@ -180,6 +190,12 @@ Content-Type: application/json
   }
 }
 ```
+
+**重要说明**：
+- 提交后会创建"删除书籍"的待审核草稿
+- 需要管理员审核通过才会真正删除书籍
+- 删除前请确认书籍 ID 正确
+- 如需撤销，使用 `POST /api/drafts/cancel`
 
 ## 撤销草稿
 

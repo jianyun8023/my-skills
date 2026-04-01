@@ -1,10 +1,11 @@
 ---
 name: calibre-drafts-api
 description: >-
-  Use when the user mentions Calibre 草稿、元数据草稿、drafts API、批量更新元数据、
-  批量提交元数据、清理标签草稿、撤销草稿、删除草稿、元数据搜索、在线元数据、
-  /api/drafts、/api/drafts/update、/api/drafts/cancel、/api/drafts/delete、
-  /api/metadata/search，或需要向 Calibre 配套服务提交待审核的元数据修改或搜索在线元数据。
+  Use when the user mentions Calibre 草稿、元数据草稿、删除书籍草稿、drafts API、
+  批量更新元数据、批量提交元数据、批量删除书籍、清理标签草稿、撤销草稿、
+  元数据搜索、在线元数据、/api/drafts、/api/drafts/update、/api/drafts/cancel、
+  /api/drafts/delete、/api/metadata/search，或需要向 Calibre 配套服务提交待审核的
+  元数据修改、删除书籍请求或搜索在线元数据。
 ---
 
 # Calibre 书籍草稿 API
@@ -62,9 +63,10 @@ EOF
 
 **使用此技能当：**
 - 需要批量提交 Calibre 书籍元数据更新草稿
+- 需要提交删除书籍的待审核请求
 - 清理垃圾标签、补全缺失元数据
 - 搜索在线元数据（豆瓣等源）以获取正确的书籍信息
-- 撤销或删除已提交的待审核草稿
+- 撤销已提交的待审核草稿（更新或删除）
 - 调用本地 Calibre 配套服务的草稿 API
 
 **不使用此技能当：**
@@ -187,10 +189,11 @@ GET /api/drafts?limit=50&offset=0
 
 **响应**：与更新接口类似，`data.received` 表示处理条数。
 
-## 删除草稿
+## 提交删除书籍草稿
 
 - **方法/路径**: `POST /api/drafts/delete`
 - **Content-Type**: `application/json`
+- **用途**: 提交**删除书籍**的待审核草稿（危险操作，需管理员审核通过后才会真正删除书籍）
 
 **请求体**（`ids` 为**书籍 ID**）：
 
@@ -200,13 +203,19 @@ GET /api/drafts?limit=50&offset=0
 }
 ```
 
-- `ids`（必填）：待删除草稿对应的 **Calibre 书籍 ID** 列表。
+- `ids`（必填）：要删除的 **Calibre 书籍 ID** 列表。
 
 **响应**：与更新接口类似，`data.received` 表示处理条数。
 
-**说明**：服务端会对重复删除等场景做去重/兼容，避免无意义重复操作。
+**重要说明**：
+- 这是**危险操作**，提交后会创建"删除书籍"的待审核草稿
+- 审核通过后，书籍将从 Calibre 书库中**永久删除**
+- 删除前请确认书籍 ID 正确，误删除可能无法恢复
+- 如果需要撤销删除草稿，使用 `POST /api/drafts/cancel`
 
-**与 `cancel` 的区分**：`cancel` 侧重「撤回已提交的待审核修改」；`delete` 侧重「删除草稿记录」。若你方实现中二者等价，可只暴露其一；以实际服务文档为准。
+**与 `cancel` 的区分**：
+- `POST /api/drafts/delete` - 提交"删除书籍"的草稿
+- `POST /api/drafts/cancel` - 撤销任何类型的待审核草稿（包括删除草稿）
 
 ## 常见错误
 
@@ -214,6 +223,8 @@ GET /api/drafts?limit=50&offset=0
 |------|------|----------|
 | 未创建配置文件 | 请求失败，找不到服务地址 | 首次使用前检查并创建 `~/.config/calibre-drafts-api/config.json` |
 | 配置的 `base_url` 包含 `/api` 后缀 | 路径重复（如 `/api/api/drafts`） | `base_url` 应为 `http://localhost:3000`，不包含 `/api` |
+| 误以为 `/api/drafts/delete` 是删除草稿 | 理解错误 | 该接口是**提交删除书籍草稿**，不是删除草稿记录 |
+| 未确认就提交删除书籍草稿 | 可能误删重要书籍 | 删除前仔细确认书籍 ID，删除草稿需管理员审核 |
 | 传 `authors: []` | 请求被拒绝 | Authors 不可清空，需要非空数组 |
 | 传 `""` 清空字符串字段 | 字段被忽略 | 字符串字段（title、publisher 等）不可清空，只有 `tags: []` 可清空 |
 | 误用草稿表 ID | 找不到书籍 | `id` 和 `ids` 均为 **Calibre 书籍 ID**，不是草稿记录内部 ID |
