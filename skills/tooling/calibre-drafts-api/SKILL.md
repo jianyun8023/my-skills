@@ -1,11 +1,10 @@
 ---
 name: calibre-drafts-api
 description: >-
-  Use when the user mentions Calibre 草稿、元数据草稿、删除书籍草稿、drafts API、
-  批量更新元数据、批量提交元数据、批量删除书籍、清理标签草稿、撤销草稿、
-  元数据搜索、在线元数据、/api/drafts、/api/drafts/update、/api/drafts/cancel、
-  /api/drafts/delete、/api/metadata/search，或需要向 Calibre 配套服务提交待审核的
-  元数据修改、删除书籍请求或搜索在线元数据。
+  Use when submitting, canceling, or reviewing Calibre metadata draft operations
+  through the drafts API, including update, delete, and metadata search
+  requests. Covers book ID rules, field update semantics, dangerous delete
+  safeguards, and review workflow constraints.
 ---
 
 # Calibre 书籍草稿 API
@@ -195,6 +194,16 @@ GET /api/drafts?limit=50&offset=0
 - **Content-Type**: `application/json`
 - **用途**: 提交**删除书籍**的待审核草稿（危险操作，需管理员审核通过后才会真正删除书籍）
 
+### 删除前二次确认（必须）
+
+在真正调用 `POST /api/drafts/delete` 之前，必须满足以下条件：
+
+1. 已向用户明确重复待删除的 **书籍 ID 列表** 和 **总数量**
+2. 已得到用户对这批 **精确 ID** 的显式确认
+3. 如果用户只表达了“删掉这些书”但没有明确确认最终 ID 列表，则**先停在预览请求体**，不要实际提交
+
+这条规则高于便利性要求。删除草稿一旦审核通过，书籍会被永久删除。
+
 **请求体**（`ids` 为**书籍 ID**）：
 
 ```json
@@ -217,6 +226,19 @@ GET /api/drafts?limit=50&offset=0
 - `POST /api/drafts/delete` - 提交"删除书籍"的草稿
 - `POST /api/drafts/cancel` - 撤销任何类型的待审核草稿（包括删除草稿）
 
+## Checklist
+
+调用前：
+- [ ] 配置文件 `~/.config/calibre-drafts-api/config.json` 存在且 `base_url` 不含 `/api`
+- [ ] 已确认本次操作属于草稿写入，而不是只读浏览
+- [ ] 已确认使用的是 **Calibre 书籍 ID**，不是草稿记录 ID 或元数据源 ID
+- [ ] 若调用删除接口，已向用户重复 ID 列表并得到显式确认
+
+调用后：
+- [ ] 已检查响应中的 `code` / `message` / `data.received`
+- [ ] 已告知用户草稿仍需管理员审核才会生效
+- [ ] 若是危险操作，已提醒可用 `POST /api/drafts/cancel` 撤销待审核草稿
+
 ## 常见错误
 
 | 错误 | 后果 | 正确做法 |
@@ -233,6 +255,7 @@ GET /api/drafts?limit=50&offset=0
 | 重复提交同一书 | 草稿被合并而非新建 | 同一书多次提交会更新现有草稿，这是预期行为 |
 | 传 `null` 值 | 字段被忽略 | `null` 等同于不传，表示"不更新该字段" |
 | 直接使用搜索结果 | 可能信息不准确 | 元数据搜索返回候选列表，需人工确认后再提交草稿 |
+| 未做二次确认就直接提交删除草稿 | 误删风险极高 | 先重复 ID 列表和数量，得到显式确认后再提交 |
 
 ## 与书库只读技能的关系
 

@@ -1,6 +1,6 @@
 ---
 name: java-api-endpoint
-description: Add RESTful API endpoints to Spring Boot projects following layered architecture conventions. Covers Controller, Facade patterns, pagination, batch operations, and OpenAPI annotations. Use when adding API endpoints, creating REST interfaces, or implementing query/mutation operations.
+description: Use when adding RESTful API endpoints to Spring Boot layered projects, including CRUD routes, pagination, batch actions, and OpenAPI annotations. Covers Controller and Facade patterns plus request and response conventions.
 ---
 
 # API 端点开发
@@ -8,6 +8,25 @@ description: Add RESTful API endpoints to Spring Boot projects following layered
 在 Spring Boot 分层架构项目中添加 RESTful API 端点。
 
 **前置**: 遵守 `java-architecture-guide` 中的分层原则。
+
+## 适用场景
+
+- 新增 RESTful 接口
+- 为现有资源补充分页、详情、启停、批量操作等端点
+- 统一 Controller / Facade 层的接口风格
+
+## 不适用
+
+- RPC、消息消费、定时任务等非 HTTP 入口
+- 仅修改 Service / Repository 内部逻辑而不暴露新接口
+- 不遵循该仓库 Java 分层约定的项目
+
+## 快速工作流
+
+1. 先确认资源名、路径和返回模型，再决定端点形态
+2. Controller 只做参数接收、校验和响应封装
+3. 读写编排放 Facade，数据查询和落库逻辑放 Service
+4. 最后补齐 `@Tag`、`@Operation`、`@Parameter` 等 OpenAPI 注解
 
 ## RESTful 规范
 
@@ -275,3 +294,25 @@ public void switchEnabled(Long id, boolean enabled) {
     policyService.switchEnabled(id, enabled);
 }
 ```
+
+## Checklist
+
+实现前：
+- [ ] 已确认资源名使用复数 kebab-case，且路径与语义匹配
+- [ ] 已确认返回 DTO / 分页模型 / 批量响应模型
+- [ ] 已确认该接口是读操作、写操作还是批量操作
+
+实现后：
+- [ ] Controller 只注入 Facade，没有直接调用 Service
+- [ ] 所有接口统一返回 `ApiResponse<T>`
+- [ ] 请求参数包含必要的校验注解和 OpenAPI 注解
+- [ ] 写操作的事务边界放在 Facade / Service 合适位置
+
+## 常见错误
+
+| 错误做法 | 正确做法 |
+|----------|----------|
+| 用单数路径如 `/api/v1/policy` | 使用复数资源路径，如 `/api/v1/policies` |
+| Controller 里直接编排多个 Service | 把跨服务编排上推到 Facade |
+| 为列表查询直接返回 Entity | 返回 `Card` / `Detail` 等 DTO |
+| 批量接口逐条抛异常中断 | 明确设计成全成功或部分成功，并返回结构化结果 |

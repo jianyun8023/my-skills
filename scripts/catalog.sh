@@ -45,9 +45,9 @@ parse_field() {
     # 提取 frontmatter (between --- and ---)
     local value
     value=$(awk '/^---$/{n++; next} n==1 && /^'"$field"':/{
-        # 处理多行 description (以 > 或 | 开头)
-        sub(/^'"$field"':[[:space:]]*>?[[:space:]]*/, "")
-        if ($0 == "" || $0 == ">") {
+        # 处理 YAML block scalar: >, >-, >+, |, |-, |+
+        sub(/^'"$field"':[[:space:]]*([>|][-+]?)?[[:space:]]*/, "")
+        if ($0 == "") {
             # 多行值，读取后续缩进行
             while ((getline line) > 0) {
                 if (line ~ /^[[:space:]]/) {

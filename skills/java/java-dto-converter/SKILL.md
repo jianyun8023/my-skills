@@ -1,11 +1,30 @@
 ---
 name: java-dto-converter
-description: Create DTOs and MapStruct converters for Spring Boot layered architecture projects. Covers naming conventions, validation annotations, OpenAPI schemas, and conversion patterns. Use when creating DTOs, request/response objects, converters, object mapping, or when working with MapStruct.
+description: Use when creating DTOs and MapStruct converters in Spring Boot layered projects. Covers naming, validation annotations, OpenAPI schemas, enum serialization, and update and response mapping patterns.
 ---
 
 # DTO 与 Converter
 
 为分层架构项目创建规范的 DTO（数据传输对象）和 MapStruct Converter（对象转换器）。
+
+## 适用场景
+
+- 新建请求 DTO、响应 DTO
+- 为 Entity 和 DTO 建立 MapStruct 转换
+- 统一分页模型、批量模型和枚举序列化约定
+- 重构旧接口的对象映射方式
+
+## 不适用
+
+- 直接把 Entity 作为 API 契约输出的临时脚本
+- 不使用 MapStruct 的轻量项目
+- 只改数据库表结构、不涉及接口模型的任务
+
+## 快速工作流
+
+1. 先确定 DTO 角色：创建、更新、卡片、详情或分页
+2. 再确定字段校验、Schema 注解和日期/枚举序列化方式
+3. 最后补 Converter：创建映射、更新合并、必要的 `@AfterMapping`
 
 ## DTO 命名体系
 
@@ -36,28 +55,7 @@ description: Create DTOs and MapStruct converters for Spring Boot layered archit
 | `PageResult<T>` | 偏移分页结果 (records, total, page, size) |
 | `CursorPageResult<T>` | 游标分页结果 (records, nextCursor, hasMore, count) |
 
-```java
-@Data
-@Schema(description = "分页请求基类")
-public class PageReq {
-    @Schema(description = "页码", example = "1")
-    @Min(value = 1, message = "页码不能小于1")
-    private Integer page = 1;
-
-    @Schema(description = "每页大小", example = "20")
-    @Range(min = 1, max = 100, message = "每页大小需在1-100之间")
-    private Integer size = 20;
-}
-
-@Data
-@Schema(description = "创建操作返回ID")
-public class IdResp {
-    @Schema(description = "资源ID")
-    private Long id;
-
-    public IdResp(Long id) { this.id = id; }
-}
-```
+完整示例见 [reference.md](reference.md)。
 
 ### 包组织
 
@@ -82,122 +80,14 @@ dto/
 
 ## DTO 注解规范
 
-### 请求 DTO 模板
+请求 / 更新 / 响应 / 详情 / 分页 DTO 的完整模板见 [reference.md](reference.md)。
 
-```java
-@Data
-@Schema(description = "策略创建请求")
-public class PolicyCreateReq {
-
-    @Schema(description = "策略名称", example = "火灾预警策略")
-    @NotBlank(message = "策略名称不能为空")
-    private String name;
-
-    @Schema(description = "策略描述")
-    private String description;
-
-    @Schema(description = "告警等级")
-    @NotNull(message = "告警等级不能为空")
-    private AlertLevelEnum alertLevel;
-
-    @Schema(description = "关联设备ID列表")
-    @NotEmpty(message = "设备ID列表不能为空")
-    private List<String> deviceIds;
-}
-```
-
-### 更新 DTO 模板
-
-更新 DTO 与创建 DTO 的区别：字段通常**全部可选**（仅传入需要修改的字段），不加 `@NotBlank` 等必填校验。
-
-```java
-@Data
-@Schema(description = "策略更新请求")
-public class PolicyUpdateReq {
-
-    @Schema(description = "策略名称", example = "火灾预警策略V2")
-    private String name;
-
-    @Schema(description = "策略描述")
-    private String description;
-
-    @Schema(description = "告警等级")
-    private AlertLevelEnum alertLevel;
-
-    @Schema(description = "关联设备ID列表")
-    private List<String> deviceIds;
-}
-```
+- 创建 DTO：必填字段补齐 `@NotBlank` / `@NotNull` / `@NotEmpty`
+- 更新 DTO：默认允许部分更新，只传需要修改的字段
+- 详情 DTO 继承卡片时，必须带 `@EqualsAndHashCode(callSuper = true)` 和 `@ToString(callSuper = true)`
+- 分页 DTO 继承 `PageReq`，筛选字段只放业务查询条件
 
 > **设计策略**: 若业务要求全量更新（每次提交完整数据），则 UpdateReq 可加必填校验，与 CreateReq 类似。
-
-### 响应 DTO 模板
-
-```java
-@Data
-@Schema(description = "策略卡片")
-public class PolicyCard {
-
-    @Schema(description = "策略ID")
-    private Long id;
-
-    @Schema(description = "策略名称")
-    private String name;
-
-    @Schema(description = "是否启用")
-    private Boolean enabled;
-
-    @Schema(description = "告警等级")
-    private AlertLevelEnum alertLevel;
-
-    @Schema(description = "创建时间")
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createTime;
-}
-```
-
-### 详情继承卡片
-
-```java
-@Data
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
-@Schema(description = "策略详情")
-public class PolicyDetail extends PolicyCard {
-
-    @Schema(description = "策略描述")
-    private String description;
-
-    @Schema(description = "时间计划列表")
-    private List<TimePlanResp> timePlans;
-
-    @Schema(description = "更新时间")
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updateTime;
-}
-```
-
-> **继承场景必须**: `@EqualsAndHashCode(callSuper = true)` + `@ToString(callSuper = true)`，否则父类字段不参与 equals/toString。
-
-### 分页请求继承基类
-
-```java
-@Data
-@EqualsAndHashCode(callSuper = true)
-@Schema(description = "策略分页查询请求")
-public class PolicyPageReq extends PageReq {
-
-    @Schema(description = "策略名称（模糊查询）")
-    private String name;
-
-    @Schema(description = "告警等级列表（多选）")
-    private List<AlertLevelEnum> alertLevels;
-
-    @Schema(description = "开始时间")
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime startTime;
-}
-```
 
 ### 常用注解速查
 
@@ -213,30 +103,7 @@ public class PolicyPageReq extends PageReq {
 
 ### 枚举序列化
 
-DTO 中使用枚举类型时，需明确 JSON 序列化/反序列化策略：
-
-```java
-@Getter
-@AllArgsConstructor
-public enum AlertLevelEnum {
-    HIGH("high", "高"),
-    MEDIUM("medium", "中"),
-    LOW("low", "低");
-
-    @JsonValue   // 序列化时输出 value 值（如 "high"）
-    private final String value;
-
-    private final String label;
-
-    @JsonCreator // 反序列化时按 value 匹配
-    public static AlertLevelEnum fromValue(String value) {
-        for (AlertLevelEnum e : values()) {
-            if (e.value.equals(value)) return e;
-        }
-        throw new IllegalArgumentException("未知告警等级: " + value);
-    }
-}
-```
+DTO 中使用枚举类型时，需明确 JSON 序列化/反序列化策略。完整示例见 [reference.md](reference.md)。
 
 | 注解 | 用途 |
 |------|------|
@@ -249,37 +116,13 @@ public enum AlertLevelEnum {
 
 所有 Converter 共享的配置，自动忽略未映射字段，无需逐个 `@Mapping(ignore=true)`：
 
-```java
-@MapperConfig(
-    componentModel = "spring",
-    unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    unmappedSourcePolicy = ReportingPolicy.IGNORE
-)
-public interface ConverterConfig {
-}
-```
+完整 `ConverterConfig` 示例见 [reference.md](reference.md)。
 
 > **推荐策略**: 优先使用 `config = ConverterConfig.class`（简洁、统一）。仅在需要**显式控制映射关系**（如字段名不同、常量赋值）时才使用 `@Mapping`。
 
 ### Converter 接口模板
 
-```java
-@Mapper(config = ConverterConfig.class)
-public interface PolicyConverter {
-
-    // Entity → DTO
-    PolicyCard toCard(AlertPolicy entity);
-    PolicyDetail toDetail(AlertPolicy entity);
-    List<PolicyCard> toCards(List<AlertPolicy> entities);
-
-    // 创建: DTO → Entity
-    AlertPolicy toEntity(PolicyCreateReq req);
-
-    // 更新: DTO 合并到已有 Entity（仅覆盖非 null 字段）
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    void updateEntity(PolicyUpdateReq req, @MappingTarget AlertPolicy entity);
-}
-```
+完整接口模板见 [reference.md](reference.md)。
 
 > **不使用 ConverterConfig 的写法**: 将 `@Mapper(config = ConverterConfig.class)` 替换为 `@Mapper(componentModel = "spring")`，并手动添加 `@Mapping(target = "id", ignore = true)` 等忽略注解。
 
@@ -296,86 +139,25 @@ public interface PolicyConverter {
 
 ### 字段映射
 
-```java
-// 忽略字段
-@Mapping(target = "id", ignore = true)
-
-// 字段名不同
-@Mapping(source = "sort", target = "sortOrder")
-
-// 常量值
-@Mapping(target = "status", constant = "DISABLED")
-
-// 表达式
-@Mapping(target = "syncTime", expression = "java(java.time.LocalDateTime.now())")
-
-// 嵌套属性
-@Mapping(target = "typeName", source = "entity.modelType.label")
-```
+- 忽略字段：`@Mapping(target = "id", ignore = true)`
+- 字段名不同：`@Mapping(source = "sort", target = "sortOrder")`
+- 常量值：`@Mapping(target = "status", constant = "DISABLED")`
+- 表达式：`@Mapping(target = "syncTime", expression = "java(...)")`
+- 嵌套属性：`@Mapping(target = "typeName", source = "entity.modelType.label")`
 
 ### 后处理 (@AfterMapping)
 
-用于 MapStruct 自动映射后的**补充逻辑**（组装显示名称、计算派生字段等）：
-
-```java
-@AfterMapping
-default void enrichCard(AlertPolicy entity, @MappingTarget PolicyCard card) {
-    // 组装显示名称
-    card.setDisplayName(entity.getName() + " (" + entity.getAlertLevel().getLabel() + ")");
-}
-
-@AfterMapping
-default void setDefaultValues(@MappingTarget AlertPolicy entity) {
-    if (entity.getEnabled() == null) entity.setEnabled(false);
-    if (entity.getStatus() == null) entity.setStatus(PolicyStatusEnum.DISABLED);
-}
-```
+用于 MapStruct 自动映射后的**补充逻辑**（组装显示名称、计算派生字段等）。完整示例见 [reference.md](reference.md)。
 
 > **null 值处理**: 简单的 null → 默认值场景优先使用 `@BeanMapping(nullValuePropertyMappingStrategy)` 或 `ConverterConfig` 级别配置，`@AfterMapping` 保留给需要自定义逻辑的场景。
 
 ### 自定义转换 (default 方法)
 
-用于枚举、时间戳等需要逻辑的转换：
-
-```java
-@Mapper(config = ConverterConfig.class)
-public interface AlertConverter {
-
-    AlertCard toCard(AlertRecord entity);
-
-    // 自定义时间戳转换（MapStruct 自动调用匹配的类型转换方法）
-    default LocalDateTime timestampToLocalDateTime(long timestamp) {
-        if (timestamp == 0) return null;
-        return LocalDateTime.ofInstant(
-            Instant.ofEpochSecond(timestamp),
-            ZoneId.systemDefault()
-        );
-    }
-
-    // 自定义枚举转换
-    default OnlineStatus convertOnlineStatus(String videoUrlStatus) {
-        return OnlineStatus.fromVideoUrlStatus(videoUrlStatus);
-    }
-}
-```
+用于枚举、时间戳等需要逻辑的转换，完整示例见 [reference.md](reference.md)。
 
 ### 组合 Converter (uses)
 
-当 Entity 含有嵌套对象需要转换时，使用 `uses` 引入其他 Converter：
-
-```java
-@Mapper(config = ConverterConfig.class, uses = {TimePlanConverter.class})
-public interface PolicyConverter {
-    // MapStruct 自动调用 TimePlanConverter 转换嵌套的 TimePlan → TimePlanResp
-    PolicyDetail toDetail(AlertPolicy entity);
-}
-
-@Mapper(config = ConverterConfig.class)
-public interface TimePlanConverter {
-    TimePlanResp toResp(TimePlan entity);
-    List<TimePlanResp> toResps(List<TimePlan> entities);
-}
-```
+当 Entity 含有嵌套对象需要转换时，使用 `uses` 引入其他 Converter。完整示例见 [reference.md](reference.md)。
 
 ## 必须忽略的字段
 
@@ -393,3 +175,25 @@ public interface TimePlanConverter {
 - 关联数据字段（如 `agentNames`, `regionPath`, `deviceGroups`）
 - 计算字段（如 `sourceCount`, `taskCount`）
 - URL 转换字段（如存储路径 → 下载链接）
+
+## Checklist
+
+编写前：
+- [ ] 已明确 DTO 是对外契约，而不是数据库结构镜像
+- [ ] 已确认创建/更新/列表/详情模型是否需要拆分
+- [ ] 已确认项目是否已有统一的 `ConverterConfig`
+
+完成后：
+- [ ] 请求 DTO 补齐必要的校验注解和 `@Schema`
+- [ ] 更新时间场景采用 `updateEntity(..., @MappingTarget ...)`
+- [ ] DTO → Entity 时忽略框架自动维护字段
+- [ ] 关联数据和计算字段没有错误地下沉到 Converter
+
+## 常见错误
+
+| 错误做法 | 正确做法 |
+|----------|----------|
+| CreateReq 和 UpdateReq 完全复用同一套必填校验 | 根据业务决定 UpdateReq 是否允许部分更新 |
+| 在 Converter 里组装大量跨服务关联数据 | 把关联丰富逻辑放到 Facade / Service |
+| DTO → Entity 时覆盖 `id`、`createTime` 等自动字段 | 明确 ignore 自动维护字段 |
+| 用 `ordinal` 序列化枚举 | 显式使用业务值并配合 `@JsonValue` / `@JsonCreator` |

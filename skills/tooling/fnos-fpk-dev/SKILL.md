@@ -1,9 +1,22 @@
 ---
 name: fnos-fpk-dev
-description: 飞牛 fnOS FPK 应用包开发指南。涵盖目录结构、manifest 配置、生命周期脚本、用户向导、权限管理、resource 资源声明和桌面图标配置。Use when developing fnOS FPK packages, creating fnOS apps, writing cmd scripts, configuring wizard/manifest/privilege/resource, desktop icons, ui/config, or when the user mentions 飞牛、fnOS、fpk。
+description: Use when developing fnOS FPK packages, writing lifecycle scripts, or configuring manifest, privilege, resource, wizard, and desktop UI files. Covers package structure, environment variables, packaging, and common platform constraints.
 ---
 
 # 飞牛 fnOS FPK 应用开发
+
+## 适用场景
+
+- 新建 fnOS FPK 应用包
+- 编写或调整 `manifest`、`cmd/` 生命周期脚本、`wizard/`、`config/privilege`、`config/resource`
+- 为 FPK 应用添加桌面图标 Web UI
+- 排查打包结构、环境变量或脚本退出码问题
+
+## 不适用
+
+- 非 fnOS / FPK 平台的 Docker、Kubernetes 或通用 Linux 打包任务
+- 只调试应用业务代码，不涉及 FPK 目录结构、生命周期或 manifest
+- 需要官方 root 权限发布资格、签名或上架审核流程细节时
 
 ## 应用目录结构
 
@@ -400,3 +413,14 @@ fnpack pack [项目目录]
 - 实际项目示例：[examples.md](examples.md)
 - 官方文档：https://developer.fnnas.com/docs/core-concepts/framework
 - 打包工具：https://developer.fnnas.com/docs/cli/fnpack
+
+## 常见错误
+
+| 错误做法 | 正确做法 |
+|----------|----------|
+| 把 `ui/` 放在项目根目录而不是 `app/ui/` | 始终让桌面 UI 跟随 `app/ -> target/` 映射 |
+| `cmd/main status` 返回 1 代表未运行 | 未运行应返回 `exit 3` |
+| 直接 `echo` 报错到 stdout | 写入 `${TRIM_TEMP_LOGFILE}` 再 `exit 1` |
+| `manifest` 使用带空格的 `key = value` | 使用严格的 `key=value` 格式 |
+| 硬编码 `/var/apps/com.example.myapp` 之类路径 | 优先使用 `TRIM_APPDEST`、`TRIM_PKGVAR` 等环境变量 |
+| 打包前不检查脚本权限和目录结构 | 先 `chmod +x cmd/*`，再用 `fnpack pack` 验证内容 |

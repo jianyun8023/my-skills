@@ -1,9 +1,31 @@
 ---
 name: java-architecture-guide
-description: Java 业务项目架构原则和编码规范。适用于 Spring Boot + MyBatis-Plus 分层架构项目。在编写/审查/重构 Java 业务代码时主动参考。Use when writing, reviewing, or refactoring Java business code, or when the user mentions architecture, coding standards, layering, or best practices.
+description: Use when writing, reviewing, or refactoring Java business code in Spring Boot + MyBatis-Plus layered projects, especially for layering, transactions, exceptions, and naming conventions. Covers Controller, Facade, Service, and Mapper boundaries plus coding standards.
 ---
 
 # Java 业务项目架构指南
+
+适用于 Spring Boot + MyBatis-Plus 分层业务项目，重点约束分层职责、事务边界和错误处理方式。
+
+## 适用场景
+
+- 新写业务模块、接口或服务实现时
+- 代码评审中需要判断分层是否合理
+- 重构 Service / Facade / Controller 边界时
+- 团队成员需要快速对齐项目编码约束时
+
+## 不适用
+
+- 纯算法类、脚本类、一次性工具代码
+- 非分层架构项目（如纯事件驱动、Hexagonal、CQRS 独立架构）
+- 仅修改配置、SQL 或前端页面样式的任务
+
+## 快速工作流
+
+1. 先确认当前需求落在哪一层，不要一开始就跨层写代码
+2. 写操作先确认事务边界，跨服务编排放在 Facade
+3. 查询逻辑优先在 Service 中用类型安全方式构建
+4. 返回给 API 的数据统一走 DTO，不直接暴露 Entity
 
 ## 分层架构
 
@@ -242,3 +264,16 @@ ApiResponse.error(code, msg)  // 错误
 | 捕获 BusinessException 后吞掉 | 错误被隐藏，调用方无法感知 | 让全局处理器统一处理 |
 | Entity 直接作为 API 响应 | 暴露内部结构，难以演化 | 使用 DTO 做 API 契约 |
 | 不指定 rollbackFor | 默认只回滚 RuntimeException | `@Transactional(rollbackFor = Exception.class)` |
+
+## Checklist
+
+编写前：
+- [ ] 已确认当前项目确实采用 Controller → Facade → Service → Mapper 分层
+- [ ] 已识别当前改动属于单域逻辑还是跨域编排
+- [ ] 已确认异常、响应、分页等公共模型的项目约定
+
+完成后：
+- [ ] Controller 只注入 Facade
+- [ ] Service 未注入其他 Service 或其他域的 Mapper
+- [ ] 写操作的事务边界明确，且未放在 Controller
+- [ ] API 对外返回 DTO，而不是 Entity

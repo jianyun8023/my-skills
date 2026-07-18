@@ -1,6 +1,6 @@
 ---
 name: java-crud-module
-description: Scaffold a complete CRUD business module for Spring Boot + MyBatis-Plus layered architecture. Creates all 9 required files (Migration, Entity, Mapper, DTOs, Converter, Service, Facade, Controller) following established conventions. Use when creating a new business module, CRUD feature, or module scaffolding.
+description: Use when scaffolding a new CRUD business module in a Spring Boot + MyBatis-Plus layered project. Covers the full 9-file flow: migration, entity, mapper, DTOs, converter, service, facade, and controller.
 ---
 
 # CRUD 模块脚手架
@@ -8,6 +8,18 @@ description: Scaffold a complete CRUD business module for Spring Boot + MyBatis-
 为 Spring Boot + MyBatis-Plus 分层架构项目创建完整的业务模块。
 
 **前置**: 遵守 `java-architecture-guide` 中的分层原则。
+
+## 适用场景
+
+- 新建标准业务资源模块
+- 为已有项目补齐一套完整 CRUD 骨架
+- 需要快速生成符合项目约定的 9 个核心文件
+
+## 不适用
+
+- 只改一个已有字段、接口或查询逻辑的局部需求
+- 非 Spring Boot + MyBatis-Plus 分层项目
+- 事件驱动、聚合根复杂编排或非典型 CRUD 场景
 
 ## 模块创建 Checklist
 
@@ -194,3 +206,13 @@ public class PolicyFacade {
 ## 完整代码参考
 
 详细的 9 文件完整代码示例见 [reference.md](reference.md)。
+
+## 常见错误
+
+| 错误做法 | 正确做法 |
+|----------|----------|
+| 跳过 Migration，先拍脑袋写 Entity | 先定表结构，再映射 Entity 和 DTO |
+| Controller 直接调 Service，省略 Facade | 保持 Controller → Facade → Service → Mapper |
+| Mapper 里写自定义 SQL 或 XML | 让查询逻辑留在 Service，用 `LambdaQueryWrapper` 构建 |
+| Create/Update/Detail 复用一个 DTO | 按创建、更新、卡片、详情拆分契约 |
+| 没确认项目是否真的维护 `CHANGELOG.md` 就硬更新 | 先遵循项目现有发布文档约定，再决定是否更新 |

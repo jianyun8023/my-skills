@@ -1,9 +1,30 @@
 ---
 name: surge-configuration
-description: Surge proxy utility configuration assistance covering profile authoring, troubleshooting, optimization, and best practices. Handles rules, policies, Smart groups, Ponte, Gateway mode, DNS, MITM, detached profiles, and proxy providers. Use when editing Surge .conf/.dconf files, troubleshooting Surge network issues, optimizing Surge setups, or when the user mentions Surge configuration.
+description: Use when editing Surge `.conf` or `.dconf` profiles, troubleshooting policy, rule, or DNS behavior, or optimizing Surge setups. Covers profile structure, policy groups, rules, DNS, MITM, Ponte, Gateway mode, and provider integration.
 ---
 
 # Surge Configuration Assistant
+
+Use this skill to author or troubleshoot Surge profiles while keeping official documentation as the source of truth for version-sensitive behavior.
+
+## 适用场景
+
+- 编辑 Surge `.conf` / `.dconf` 配置
+- 设计规则、策略组、DNS、MITM、Ponte 或 Gateway Mode
+- 排查流量未命中、DNS 异常、代理组切换不符合预期等问题
+
+## 不适用
+
+- 非 Surge 客户端（如 Clash、sing-box、OpenClash）配置
+- 需要联网核对最新功能变更但当前环境无法取官方文档时的最终结论
+- 与代理无关的普通网络故障排查
+
+## 快速工作流
+
+1. 先确认问题属于哪一层：Profile 结构、Proxy/Group、Rule、DNS、MITM 或 Gateway
+2. 若配置行为和记忆冲突，优先以官方 Release Log / Manual / KB 为准
+3. 先写最小可复现配置，再逐段扩展 `Proxy Group`、`Rule` 和 DNS 细节
+4. 排障时先确认流量是否真的被 Surge 接管，再看规则命中和转发结果
 
 ## Documentation Priority
 
@@ -264,6 +285,28 @@ Proxy = snell, server.com, 8443, psk=xxx, version=5, reuse=true, tfo=true, shado
 | QUIC blocked | Expected: TCP proxy + QUIC = double retransmission; use Snell v5 QUIC mode if needed |
 | NAT type degraded | Configure `always-real-ip` for STUN domains |
 | "Network quality poor" | Check DNS servers (avoid 8.8.8.8 in mainland China) |
+
+## Checklist
+
+编写前：
+- [ ] 已确认目标平台、Surge 版本和问题场景
+- [ ] 已区分是新建 profile、修改现有 profile 还是纯排障
+- [ ] 对版本敏感的行为已准备回查官方文档
+
+完成后：
+- [ ] `[Rule]` 顺序满足“先域名、后 IP、最后 FINAL”
+- [ ] IP 规则已评估是否需要 `no-resolve`
+- [ ] 使用 `#!include` 时未与普通内容混写
+- [ ] DNS、MITM、Gateway 等配置与当前网络环境匹配
+
+## 常见错误
+
+| 错误做法 | 正确做法 |
+|----------|----------|
+| 把 `#!include` 和普通配置写在同一个 section | 将普通内容移动到被引用的 `.dconf` 文件中 |
+| 先写 IP / GEOIP 规则再写域名规则 | 让非 DNS 规则优先，减少无意义解析 |
+| 盲目使用 8.8.8.8 等公共 DNS | 根据网络环境选择可达且稳定的 DNS |
+| 不确认接管状态就开始改规则 | 先确认请求是否进入 Surge，再排查命中链路 |
 
 ## Additional Resources
 

@@ -7,6 +7,28 @@ description: Use when containerizing VPN clients into Docker, supporting both GU
 
 将 VPN 客户端封装到 Docker 容器中，提供 SOCKS5 代理出口。支持两种模式：GUI 客户端使用 VNC，CLI 客户端使用 Web 管理界面。
 
+## 适用场景
+
+- 需要把现有 VPN 客户端封装到 Docker 中运行
+- 需要通过容器提供 SOCKS5 代理出口
+- 需要为 GUI 客户端提供 VNC 访问，或为 CLI 客户端提供轻量 Web 管理界面
+- 需要复用仓库里的 Dockerfile / 启动脚本模板快速搭建原型
+
+## 不适用
+
+- 只需要普通 HTTP 代理、反向代理或零信任隧道，不需要 VPN 客户端
+- 运行环境无法提供 `NET_ADMIN`、`/dev/net/tun` 或 NAT 能力
+- 需要生产级鉴权、审计、密钥管理，但当前方案只有最小原型级管理界面
+- 需要直接容器化 WireGuard/OpenVPN 服务端，而不是客户端
+
+## 快速工作流
+
+1. 先判断客户端是 GUI 还是 CLI，选定模式 A / B
+2. 确认运行环境具备 `NET_ADMIN`、`/dev/net/tun`、iptables 和目标架构支持
+3. 从 `templates/` 复制对应 Dockerfile、启动脚本和配置文件
+4. 先打通 `VPN -> tun0 -> danted` 链路，再验证 VNC 或 Web 管理界面
+5. 最后做容器启动、代理可用性和 NAT 转发验证
+
 ## Decision Flow
 
 ```

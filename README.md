@@ -14,10 +14,14 @@ my-skills/
 │   │   ├── java-db-migration/
 │   │   └── java-dto-converter/
 │   ├── devops/                     # DevOps & CI/CD
+│   │   ├── disk-monitor/
 │   │   ├── dockerizing-vpn-clients/
 │   │   ├── github-actions-multi-platform-build/
 │   │   └── grafana-alloy-hcl/
 │   ├── tooling/                    # 工具配置
+│   │   ├── calibre-book-screening/
+│   │   ├── calibre-drafts-api/
+│   │   ├── calibre-library/
 │   │   ├── fnos-fpk-dev/
 │   │   └── surge-configuration/
 │   └── workflow/                   # 工作流 & 协作
@@ -90,18 +94,22 @@ cp templates/SKILL_TEMPLATE.md skills/<category>/<skill-name>/SKILL.md
 | `java-db-migration` | MyBatis Migration 数据库迁移脚本生成 |
 | `java-dto-converter` | DTO 与 MapStruct Converter 编写规范 |
 
-### DevOps & CI/CD (3)
+### DevOps & CI/CD (4)
 
 | Skill | 描述 |
 |-------|------|
+| `disk-monitor` | 服务器磁盘健康检查，读取 SMART / Scrutiny 数据并生成可读报告 |
 | `github-actions-multi-platform-build` | GitHub Actions 多平台 Docker 镜像构建（amd64/arm64） |
 | `dockerizing-vpn-clients` | VPN 客户端 Docker 容器化，支持 GUI（VNC）和 CLI（Web 管理）模式 |
 | `grafana-alloy-hcl` | Grafana Alloy HCL 配置编写，含日志采集、数据处理流水线及 FnOS 配置模式 |
 
-### 工具配置 (2)
+### 工具配置 (5)
 
 | Skill | 描述 |
 |-------|------|
+| `calibre-library` | Calibre 书库只读访问，支持搜索、浏览、详情查看与下载 |
+| `calibre-drafts-api` | Calibre 配套草稿 API，提交待审核的元数据修改、删除和撤销请求 |
+| `calibre-book-screening` | Calibre 书库质量筛选，识别不合格书籍并输出待删除/待更新清单 |
 | `fnos-fpk-dev` | 飞牛 fnOS FPK 应用包开发，含目录结构、生命周期脚本、权限与资源声明 |
 | `surge-configuration` | Surge 代理工具配置，含规则、策略、DNS、MITM 等 |
 

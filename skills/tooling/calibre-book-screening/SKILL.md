@@ -1,10 +1,10 @@
 ---
 name: calibre-book-screening
 description: >-
-  Calibre 书库入库质量筛选。通过元数据检查识别不合格书籍：非中文、色情内容、
-  日系漫画、作者/出版社含邮箱、低质出版源、元数据缺失等。
-  Use when the user mentions 书籍筛选, 书库清理, 不合格书籍, 质量检查,
-  书籍审核, or wants to screen/filter/review books in Calibre library.
+  Use when screening or reviewing Calibre books for library quality, especially
+  to identify non-Chinese books, adult content, Japanese manga or light novels,
+  spammy metadata, low-quality publishers, or missing metadata. Covers review
+  rules, output categories, and the bundled screening script.
 ---
 
 # Calibre 书库质量筛选
@@ -18,6 +18,13 @@ description: >-
 - 定期审核最近入库的书籍质量
 - 批量筛选不合格书籍并输出清单
 - 对单本书籍进行详细质量核查
+
+## 不适用
+
+- 直接修改、删除 Calibre 书库数据的场景
+- 只想浏览、搜索或下载书籍，不做质量审核
+- 评估排版、OCR 准确率、EPUB 结构等内容质量问题
+- 非“中文正规出版书籍优先”的书库策略
 
 ## 筛选规则
 
@@ -139,8 +146,9 @@ if not is_chinese:
 2. 运行筛选脚本：
 
 ```bash
-cd skills/tooling/calibre-book-screening
-python scripts/screen.py --input books.json --output report.md
+python skills/tooling/calibre-book-screening/scripts/screen.py \
+  --input books.json \
+  --output /tmp/calibre-screening-report.md
 ```
 
 3. 脚本会自动：

@@ -11,6 +11,8 @@ skill-name/
 ├── SKILL.md              # 必需 - 主文件
 ├── reference.md          # 可选 - 详细参考
 ├── examples.md           # 可选 - 使用示例
+├── scripts/              # 可选 - 可执行脚本
+├── resources/            # 可选 - 配置/模板/样例
 └── templates/            # 可选 - 模板文件
     └── ...
 ```
@@ -27,25 +29,28 @@ skill-name/
 ---
 name: skill-name            # 必需，与目录名一致
 description: >              # 必需，简短描述
-  What this skill does.
   Use when [trigger conditions].
+  Covers [scope], [constraints], and [key outputs].
 ---
 ```
 
 #### Description 编写要点
 
-- 说明 Skill **做什么** 以及 **什么时候使用**
+- 优先把 **Use when** 触发条件放在前面，便于被 AI 工具发现
+- 说明 Skill **做什么**、**不做什么**，以及关键约束
 - 包含 "Use when" 触发条件
 - 最大 1024 字符
 - 包含关键词，便于 AI Agent 搜索发现
 
 ### 内容规范
 
-1. **主文件控制在 500 行以内**，详细参考放 `reference.md`
-2. **使用中文**编写面向中文用户的 Skill
+1. **主文件控制在 500 行以内**，超过 300 行时优先评估是否可拆到 `reference.md` / `examples.md`
+2. **使用中文**编写面向中文用户的 Skill；必要时可中英混排关键词
 3. **提供代码示例**，而非纯文字描述
-4. **包含 Checklist**，方便检查完成度
-5. **列出常见错误**和反模式
+4. **至少包含**：`适用场景`、`不适用`、`Checklist`、`常见错误`
+5. **先给工作流，再给细节**；把大段参考内容下沉到 `reference.md`
+6. **不要提交生成产物**（如测试报告、执行日志、筛选结果）到 Skill 目录；这类文件应放到临时目录或仓库外
+7. **避免写死环境信息**（服务地址、密钥、个人路径）；优先通过配置文件或环境变量读取
 
 ### 分类目录
 
@@ -74,6 +79,8 @@ description: >              # 必需，简短描述
 ## 修改现有 Skill
 
 1. 直接编辑仓库中的文件
-2. 运行 `./scripts/install.sh` 同步到本地工具目录
-3. 测试效果
-4. 提交更改
+2. 如有结构性改动，检查是否需要同步更新 `reference.md` / `examples.md`
+3. 运行 `./scripts/catalog.sh` 更新索引
+4. 运行 `./scripts/install.sh` 同步到本地工具目录
+5. 测试效果
+6. 提交更改

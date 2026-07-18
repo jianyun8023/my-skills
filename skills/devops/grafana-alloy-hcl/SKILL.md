@@ -1,11 +1,32 @@
 ---
 name: grafana-alloy-hcl
-description: Grafana Alloy HCL 配置文件编写指南。涵盖基本语法、核心组件（Loki/Prometheus）、日志采集、数据处理流水线及 FnOS 特定配置模式。Use when editing .alloy files, configuring Grafana Alloy, setting up log pipelines, or debugging Alloy configurations.
+description: Use when editing `.alloy` files, configuring Grafana Alloy pipelines, or debugging log collection and relabeling behavior. Covers HCL syntax, common Loki/Prometheus components, processing stages, Docker discovery, and FnOS-specific patterns.
 ---
 
 # Grafana Alloy HCL 配置指南
 
 Grafana Alloy 使用 HCL (HashiCorp Configuration Language) 作为配置语言，支持模块化、组件化的数据处理流水线。
+
+## 适用场景
+
+- 新增或修改 `.alloy` 配置文件
+- 配置日志采集、处理流水线或 Loki 写入链路
+- 调试 `forward_to`、`discovery.relabel`、`stage.*` 等配置问题
+- 在 FnOS / Docker 环境下落地 Alloy 日志采集
+
+## 不适用
+
+- 安装 Alloy 二进制、systemd 服务或容器编排本身
+- Loki / Grafana 仪表盘查询语句、告警规则设计
+- 不涉及 Alloy 的普通 HCL/Terraform 配置
+
+## 快速工作流
+
+1. 先确定链路：`source -> process/relabel -> write`
+2. 先写最小可运行配置，再逐步增加 `stage.*` 和标签处理
+3. 涉及 Docker relabel 时，优先确认 `.output` / `.rules` 的使用位置
+4. 涉及正则时，优先检查 HCL 双反斜杠转义
+5. 最后用 `alloy fmt`、livedebugging 或示例配置对照验证
 
 ## 核心概念
 
@@ -403,70 +424,9 @@ discovery.relabel "filter_example" {
 }
 ```
 
-## FnOS 最佳实践
+## FnOS 参考
 
-### 目录与文件结构
-- **模块化**: 将不同类型的配置（如 `system.alloy`, `docker.alloy`）分开，虽然最终会在一个进程运行，但逻辑上保持清晰。
-- **注释**: 充分使用 `//` 注释，标记每个 `component` 的用途和数据流向 (`forward_to`)。
-
-### 目录规范 (FnOS Standard Paths)
-
-在 FnOS 环境下，建议遵循以下日志路径标准：
-
-- **Trim 应用日志**: `/var/log/apps/trim.*.log`
-    - 例如: `trim.photos.log`, `trim.media.log`
-- **系统服务日志**: `/var/log/trim_*/*.log`
-    - 例如: `/var/log/trim_app_center/`, `/var/log/trim_sac/`
-- **Nginx (Trim Web Server)**: `/usr/trim/nginx/logs/*.log`
-    - **安全关键**: 包含 `access.log` 和 `error.log`
-- **系统日志**: `/var/log/*` (通常使用 `loki.source.journal` 采集)
-
-### FnOS 组件配置示例
-
-#### 1. 采集 Trim 应用日志
-```hcl
-loki.source.file "trim_apps" {
-  targets = [
-    {
-      __path__ = "/var/log/apps/trim.*.log",
-      job      = "fnos-apps",
-      category = "trim-app",
-    }
-  ]
-  forward_to = [loki.write.local.receiver]
-}
-```
-
-#### 2. 采集 Nginx 安全日志
-```hcl
-loki.source.file "nginx_security" {
-  targets = [
-    {
-      __path__ = "/usr/trim/nginx/logs/access.log",
-      job      = "fnos-nginx-access",
-      category = "security",
-    },
-    {
-      __path__ = "/usr/trim/nginx/logs/error.log",
-      job      = "fnos-nginx-error",
-      level    = "error",
-    },
-  ]
-  forward_to = [loki.write.local.receiver]
-}
-```
-
-### 动态配置模板
-在 FPK 开发中，常通过 `envsubst` 或自定义脚本替换模板变量：
-- `{{LOKI_URL}}`
-- `{{AUTH_USERNAME}}`
-- `{{HOSTNAME}}`
-
-### 调试技巧
-
-1. **格式化**: `alloy fmt config.alloy` (由于是在 FPK 内运行，开发时可安装本地 alloy 工具)
-2. **调试组件**: 使用 `livedebugging` (Web UI http://localhost:12345/graph) 查看数据流向。
-3. **日志输出**: 在 `logging {}` 块中设置 `level = "debug"`。
+FnOS 路径规范、组件示例和调试技巧已拆到 [reference.md](reference.md)。在 FnOS / FPK 场景下，先读该文件，再回到本技能主流程拼装配置。
 
 ### 常见错误清单
 
@@ -477,6 +437,19 @@ loki.source.file "nginx_security" {
 | `stage.labels { values = { level = "level" } }` 提取同名字段 | `stage.labels { values = { level = "" } }` | 空字符串表示使用同名键 |
 | 在 `loki.process` 外使用 stage | 放在 `loki.process` 块内 | 所有 stage 必须嵌套在 `loki.process` 中 |
 | `forward_to = loki.write.X.receiver` | `forward_to = [loki.write.X.receiver]` | `forward_to` 始终是数组 |
+
+## Checklist
+
+实现前：
+- [ ] 已明确日志来源、处理链路和最终写入目标
+- [ ] 已确认是否需要 `discovery.relabel`、`loki.relabel` 或 `loki.process`
+- [ ] 已确认运行环境路径、Docker socket 或 FnOS 日志目录
+
+实现后：
+- [ ] 所有 `forward_to` 都是数组，且接收端存在
+- [ ] 正则表达式中的反斜杠已按 HCL 规则双重转义
+- [ ] Docker relabel 相关配置正确使用 `.output` 或 `.rules`
+- [ ] 已参考 `resources/example.alloy` 验证整体结构是否一致
 
 ## 完整示例
 
