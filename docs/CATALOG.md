@@ -1,6 +1,6 @@
 # Skill 目录索引
 
-> 自动生成于 2026-04-05 21:13:34，请勿手动编辑。
+> 自动生成于 2026-09-07 15:10:23，请勿手动编辑。
 > 运行 `./scripts/catalog.sh` 重新生成。
 
 ## DevOps & CI/CD (4)
@@ -36,7 +36,7 @@
 
 | Skill | 描述 |
 |-------|------|
-| [`context-detective`](skills/workflow/context-detective/) | Use when starting a new non-trivial task, exploring an unfamiliar codebase, or before creating new files. Covers a pr... |
+| [`context-detective`](skills/workflow/context-detective/) | Ground codebase decisions in task-relevant evidence when implementation, dependencies, conventions, or impact are unc... |
 
 ---
 

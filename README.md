@@ -117,7 +117,7 @@ cp templates/SKILL_TEMPLATE.md skills/<category>/<skill-name>/SKILL.md
 
 | Skill | 描述 |
 |-------|------|
-| `context-detective` | 深度上下文收集，防止 AI 幻觉。任务开始前探索代码库，建立经过验证的事实基础 |
+| `context-detective` | 按决策需要探索代码库，核实实现、依赖与影响；证据充分后继续任务，跳过精确低风险修改 |
 
 > 完整索引见 [docs/CATALOG.md](docs/CATALOG.md)
 
