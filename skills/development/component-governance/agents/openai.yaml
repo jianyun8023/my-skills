@@ -1,0 +1,4 @@
+interface:
+  display_name: "组件与架构治理"
+  short_description: "跨项目治理组件提取、职责分层与复用边界，避免过度抽象和机械拆分"
+  default_prompt: "使用 $component-governance，结合本次目标、项目规则和真实消费者，按请求审查或实施组件提取、分层与治理，说明证据、取舍和实际验证结果。"

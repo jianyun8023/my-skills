@@ -114,7 +114,7 @@ generate_catalog() {
                 extras=" (附:$extras)"
             fi
 
-            local rel_path="skills/$category/$skill_name"
+            local rel_path="../skills/$category/$skill_name"
             cat_content+="| [\`$skill_name\`]($rel_path/) | $desc$extras |"$'\n'
             skills_in_cat=$((skills_in_cat + 1))
             total=$((total + 1))
