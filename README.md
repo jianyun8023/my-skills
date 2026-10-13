@@ -7,6 +7,8 @@ AI Agent Skills 的集中管理仓库。通过 Git 管理版本，自动部署�
 ```
 my-skills/
 ├── skills/                         # 所有 Skill
+│   ├── development/                # 开发方法论
+│   │   └── component-governance/
 │   ├── java/                       # Java 技术栈
 │   │   ├── java-api-endpoint/
 │   │   ├── java-architecture-guide/
@@ -84,6 +86,12 @@ cp templates/SKILL_TEMPLATE.md skills/<category>/<skill-name>/SKILL.md
 
 ## Skill 索引
 
+### 开发方法论 (1)
+
+| Skill | 描述 |
+|-------|------|
+| [`component-governance`](skills/development/component-governance/) | 根据真实消费者与项目规则处理组件提取、复用、分层和持续治理，避免过度抽象与机械拆分 |
+
 ### Java 技术栈 (5)
 
 | Skill | 描述 |
@@ -129,7 +137,7 @@ cp templates/SKILL_TEMPLATE.md skills/<category>/<skill-name>/SKILL.md
 | DevOps | `skills/devops/` | CI/CD、Docker、GitHub Actions、可观测性 |
 | 工具配置 | `skills/tooling/` | 平台开发、代理工具等 |
 | 工作流 | `skills/workflow/` | AI 协作流程、上下文收集 |
-| 开发方法论 | `skills/development/` | TDD、DDD 等（待添加） |
+| 开发方法论 | `skills/development/` | 组件提取、职责分层与持续架构治理 |
 | 质量保证 | `skills/quality/` | 代码审查、测试（待添加） |
 | AI 提示 | `skills/prompting/` | 提示技巧（待添加） |
 
