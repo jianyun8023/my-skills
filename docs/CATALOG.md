@@ -1,6 +1,6 @@
 # Skill 目录索引
 
-> 自动生成于 2026-10-13 16:55:14，请勿手动编辑。
+> 自动生成于 2026-11-19 09:22:00，请勿手动编辑。
 > 运行 `./scripts/catalog.sh` 重新生成。
 
 ## 开发方法论 (1)
@@ -28,6 +28,12 @@
 | [`java-db-migration`](../skills/java/java-db-migration/) | Use when creating MyBatis Migration scripts for schema changes such as new tables, added columns, and index updates. ... (附: reference) |
 | [`java-dto-converter`](../skills/java/java-dto-converter/) | Use when creating DTOs and MapStruct converters in Spring Boot layered projects. Covers naming, validation annotation... (附: reference) |
 
+## 质量保证 (1)
+
+| Skill | 描述 |
+|-------|------|
+| [`engineering-lint`](../skills/quality/engineering-lint/) | Use when proactively auditing or improving a software repository's lint, static analysis, architecture rules, depende... (附: reference templates) |
+
 ## 工具配置 (5)
 
 | Skill | 描述 |
@@ -46,4 +52,4 @@
 
 ---
 
-**共计 16 个 Skill**
+**共计 17 个 Skill**
