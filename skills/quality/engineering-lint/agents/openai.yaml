@@ -1,0 +1,4 @@
+interface:
+  display_name: "工程 Lint 治理"
+  short_description: "发现并落地适合当前项目的 Lint、静态分析和架构护栏"
+  default_prompt: "使用 $engineering-lint 审计当前仓库，优先复用现有工具，识别有证据的工程约束，并按本次请求给出规则建议或完成规则、测试与 CI 落地。"

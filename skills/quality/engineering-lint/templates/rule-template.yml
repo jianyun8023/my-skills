@@ -1,0 +1,65 @@
+# Copy this file into the project's rule directory and adapt it.
+# This is a design template, not a universal executable schema.
+
+id: PROJECT-ARCH-001
+name: single-owner-boundary
+category: architecture
+severity: error
+status: proposed # proposed | warning | enforced | deprecated
+
+summary: >
+  Short, deterministic description of the invariant.
+
+scope:
+  languages: []
+  include:
+    - "src/**"
+  exclude:
+    - "**/generated/**"
+    - "**/vendor/**"
+    - "**/test/**"
+
+source_of_truth:
+  - "docs/ARCHITECTURE.md#ownership"
+
+matcher:
+  tool: "choose-existing-tool-first"
+  rule_or_query: "Describe the AST, type, dependency, or compiler condition."
+  # Avoid regex/grep when syntax or dependency resolution matters.
+
+reason: >
+  Explain why this invariant exists and the concrete risk of violating it.
+
+message: |
+  PROJECT-ARCH-001: <what was violated>
+
+  Reason:
+  <why it matters>
+
+  Fix:
+  <preferred owner, API, or implementation pattern>
+
+  Allowed:
+  <narrow exception, if any>
+
+fix:
+  guidance: "Describe the intended fix; do not suggest a blanket suppression."
+  autofix: false
+
+exceptions:
+  - scope: "test-only reference implementation"
+    reason: "Independent test oracle is intentionally retained."
+
+tests:
+  allowed:
+    - "A valid implementation must not trigger the rule."
+  forbidden:
+    - "A violating implementation must trigger PROJECT-ARCH-001."
+  near_miss:
+    - "A similar but explicitly allowed implementation must not trigger."
+
+migration:
+  baseline: "none"
+  removal_condition: "Remove this section after all historical violations are fixed."
+
+owner: "team-or-module-owner"

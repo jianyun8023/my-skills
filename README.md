@@ -20,6 +20,8 @@ my-skills/
 │   │   ├── dockerizing-vpn-clients/
 │   │   ├── github-actions-multi-platform-build/
 │   │   └── grafana-alloy-hcl/
+│   ├── quality/                    # 质量保证
+│   │   └── engineering-lint/
 │   ├── tooling/                    # 工具配置
 │   │   ├── calibre-book-screening/
 │   │   ├── calibre-drafts-api/
@@ -121,6 +123,12 @@ cp templates/SKILL_TEMPLATE.md skills/<category>/<skill-name>/SKILL.md
 | `fnos-fpk-dev` | 飞牛 fnOS FPK 应用包开发，含目录结构、生命周期脚本、权限与资源声明 |
 | `surge-configuration` | Surge 代理工具配置，含规则、策略、DNS、MITM 等 |
 
+### 质量保证 (1)
+
+| Skill | 描述 |
+|-------|------|
+| `engineering-lint` | 主动审计当前项目的 Lint、静态分析与架构规则；优先复用现有工具，按需创建经过测试的自定义规则并接入 CI |
+
 ### 工作流 & 协作 (1)
 
 | Skill | 描述 |
@@ -138,7 +146,7 @@ cp templates/SKILL_TEMPLATE.md skills/<category>/<skill-name>/SKILL.md
 | 工具配置 | `skills/tooling/` | 平台开发、代理工具等 |
 | 工作流 | `skills/workflow/` | AI 协作流程、上下文收集 |
 | 开发方法论 | `skills/development/` | 组件提取、职责分层与持续架构治理 |
-| 质量保证 | `skills/quality/` | 代码审查、测试（待添加） |
+| 质量保证 | `skills/quality/` | 工程 Lint、静态分析、架构规则与 CI 质量门禁 |
 | AI 提示 | `skills/prompting/` | 提示技巧（待添加） |
 
 ## 工作原理
